@@ -813,12 +813,21 @@ export async function getAsignacionesByUnidad(unidadId) {
 }
 
 export async function addAsignacion(data) {
-    // Validar que la unidad no esté ya asignada con el mismo rol
+    // Multiasignación: un usuario puede tener múltiples unidades
+    // Solo bloquea si ya tiene el MISMO rol en la MISMA unidad
     const existente = seedAsignaciones.find(a =>
         a.unidad_id === data.unidad_id &&
-        a.usuario_id === data.usuario_id
+        a.usuario_id === data.usuario_id &&
+        a.rol_vinculado === data.rol_vinculado
     )
-    if (existente) throw new Error('Este usuario ya tiene una asignación a esta unidad')
+    if (existente) throw new Error(`Este usuario ya tiene rol ${data.rol_vinculado} en esta unidad`)
+
+    // Validar fechas obligatorias para roles temporales
+    const rolesTemporal = ['Huésped', 'Inquilino']
+    if (rolesTemporal.includes(data.rol_vinculado)) {
+        if (!data.fecha_inicio) throw new Error(`El rol ${data.rol_vinculado} requiere fecha de Check-in`)
+        if (!data.fecha_fin) throw new Error(`El rol ${data.rol_vinculado} requiere fecha de Check-out`)
+    }
 
     const id = `asig-${Date.now().toString(36)}`
     const nueva = {

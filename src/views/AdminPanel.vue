@@ -468,12 +468,26 @@
             <label class="text-xs text-gray-400 uppercase tracking-wider mb-1 block">Rol vinculado</label>
             <select v-model="asigRol"
               class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2.5 text-white text-sm focus:border-amber-500 focus:outline-none">
-              <option value="Propietario">Propietario</option>
-              <option value="Inquilino">Inquilino</option>
-              <option value="Familiar">Familiar</option>
+              <option v-for="r in rolesVinculados" :key="r.id" :value="r.id">{{ r.icon }} {{ r.label }}</option>
             </select>
           </div>
           <div>
+            <label class="text-xs text-gray-400 uppercase tracking-wider mb-1 block">
+              Check-in {{ rolRequiereFechas(asigRol) ? '*' : '' }}
+            </label>
+            <input v-model="asigFechaInicio" type="date"
+              :required="rolRequiereFechas(asigRol)"
+              class="w-full bg-gray-900/50 border rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none"
+              :class="rolRequiereFechas(asigRol) && !asigFechaInicio ? 'border-amber-500/60 focus:border-amber-400' : 'border-gray-700/50 focus:border-amber-500'" />
+          </div>
+          <div class="col-span-2" v-if="rolRequiereFechas(asigRol)">
+            <label class="text-xs text-amber-400 uppercase tracking-wider mb-1 block flex items-center gap-1">
+              ⚠ Check-out obligatorio para {{ asigRol }}
+            </label>
+            <input v-model="asigFechaFin" type="date"
+              class="w-full bg-gray-900/50 border border-amber-500/60 rounded-lg px-3 py-2.5 text-white text-sm focus:border-amber-400 focus:outline-none" />
+          </div>
+          <div v-else>
             <label class="text-xs text-gray-400 uppercase tracking-wider mb-1 block">Fecha fin (opcional)</label>
             <input v-model="asigFechaFin" type="date"
               class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2.5 text-white text-sm focus:border-amber-500 focus:outline-none" />
@@ -511,12 +525,17 @@
               <div>
                 <label class="text-[10px] text-gray-500 uppercase">Rol</label>
                 <select v-model="editAsigData.rol_vinculado" class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none">
-                  <option>Propietario</option><option>Inquilino</option><option>Familiar</option>
+                  <option v-for="r in rolesVinculados" :key="r.id" :value="r.id">{{ r.icon }} {{ r.label }}</option>
                 </select>
               </div>
               <div>
-                <label class="text-[10px] text-gray-500 uppercase">Fecha fin</label>
-                <input v-model="editAsigData.fecha_fin" type="date" class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none" />
+                <label class="text-[10px] text-gray-500 uppercase">Check-in</label>
+                <input v-model="editAsigData.fecha_inicio" type="date" class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none" />
+              </div>
+              <div class="col-span-2">
+                <label class="text-[10px] uppercase" :class="rolRequiereFechas(editAsigData.rol_vinculado) ? 'text-amber-400' : 'text-gray-500'">Check-out {{ rolRequiereFechas(editAsigData.rol_vinculado) ? '(obligatorio)' : '' }}</label>
+                <input v-model="editAsigData.fecha_fin" type="date" class="w-full bg-gray-900/50 border rounded-lg px-3 py-2 text-white text-xs focus:outline-none"
+                  :class="rolRequiereFechas(editAsigData.rol_vinculado) ? 'border-amber-500/50 focus:border-amber-400' : 'border-gray-700/50 focus:border-amber-500'" />
               </div>
             </div>
             <div class="flex gap-2">
@@ -526,13 +545,17 @@
           </div>
           <!-- View mode -->
           <div v-else class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
-              <Link :size="18" class="text-amber-400" />
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center"
+              :class="rolBadgeColor(a.rol_vinculado)">
+              <span class="text-sm">{{ rolIcon(a.rol_vinculado) }}</span>
             </div>
             <div class="flex-1 min-w-0">
               <p class="text-white text-sm font-medium truncate">{{ a.usuario_nombre }}</p>
               <p class="text-gray-400 text-[11px]">{{ a.condominio_nombre }} · {{ a.agrupador_nombre }} · {{ a.unidad_codigo }}</p>
-              <p class="text-gray-500 text-[10px]">{{ a.rol_vinculado }} · Desde {{ a.fecha_inicio }}{{ a.fecha_fin ? ' hasta ' + a.fecha_fin : ' (permanente)' }}</p>
+              <p class="text-gray-500 text-[10px]">
+                <span class="px-1.5 py-0.5 rounded text-[9px] font-semibold mr-1" :class="rolBadgeColor(a.rol_vinculado)">{{ a.rol_vinculado }}</span>
+                {{ a.fecha_inicio }}{{ a.fecha_fin ? ' → ' + a.fecha_fin : ' (permanente)' }}
+              </p>
             </div>
             <div class="flex gap-1">
               <button @click="startEditAsig(a)" class="text-cyan-400/40 hover:text-cyan-400 transition-colors p-1" title="Editar">
@@ -753,7 +776,24 @@ function formatCedula(c) {
   return `${c.substr(0, 3)}-${c.substr(3, 7)}-${c.substr(10, 1)}`
 }
 
-// ---- Asignaciones (Módulo 2) ----
+// ---- Asignaciones (Módulo 2 Evolucionado) ----
+const rolesVinculados = [
+  { id: 'Propietario', label: 'Propietario', icon: '🏠' },
+  { id: 'Property Manager', label: 'Property Manager', icon: '🏢' },
+  { id: 'Inquilino', label: 'Inquilino', icon: '🔑' },
+  { id: 'Huésped', label: 'Huésped', icon: '🎫' },
+  { id: 'Familiar', label: 'Familiar', icon: '👪' },
+]
+function rolRequiereFechas(rol) { return ['Huésped', 'Inquilino'].includes(rol) }
+function rolBadgeColor(rol) {
+  const map = { 'Propietario': 'bg-emerald-500/20 text-emerald-300', 'Property Manager': 'bg-purple-500/20 text-purple-300', 'Inquilino': 'bg-amber-500/20 text-amber-300', 'Huésped': 'bg-blue-500/20 text-blue-300', 'Familiar': 'bg-cyan-500/20 text-cyan-300' }
+  return map[rol] || 'bg-gray-500/20 text-gray-300'
+}
+function rolIcon(rol) {
+  const map = { 'Propietario': '🏠', 'Property Manager': '🏢', 'Inquilino': '🔑', 'Huésped': '🎫', 'Familiar': '👪' }
+  return map[rol] || '🔗'
+}
+
 const asignaciones = ref([])
 const asigSearchTerm = ref('')
 const asigSearchResults = ref([])
@@ -761,12 +801,17 @@ const asigSelectedUser = ref(null)
 const asigCondoId = ref('')
 const asigUnidadId = ref('')
 const asigRol = ref('Propietario')
+const asigFechaInicio = ref('')
 const asigFechaFin = ref('')
 const asigError = ref('')
 const asigSuccess = ref('')
 const asigUnidadesDisponibles = ref([])
 
-const canCreateAsig = computed(() => asigSelectedUser.value && asigCondoId.value && asigUnidadId.value)
+const canCreateAsig = computed(() => {
+  if (!asigSelectedUser.value || !asigCondoId.value || !asigUnidadId.value) return false
+  if (rolRequiereFechas(asigRol.value) && (!asigFechaInicio.value || !asigFechaFin.value)) return false
+  return true
+})
 
 async function onAsigSearch() {
   if (asigSearchTerm.value.length < 2) { asigSearchResults.value = []; return }
@@ -784,11 +829,12 @@ async function crearAsignacion() {
     await addAsignacion({
       usuario_id: asigSelectedUser.value.id, unidad_id: asigUnidadId.value,
       condominio_id: asigCondoId.value, rol_vinculado: asigRol.value,
+      fecha_inicio: asigFechaInicio.value || null,
       fecha_fin: asigFechaFin.value || null
     })
     asigSuccess.value = 'Asignacion creada exitosamente'
     asigSelectedUser.value = null; asigSearchTerm.value = ''; asigCondoId.value = ''
-    asigUnidadId.value = ''; asigFechaFin.value = ''
+    asigUnidadId.value = ''; asigFechaInicio.value = ''; asigFechaFin.value = ''
     await refreshData()
   } catch (e) { asigError.value = e.message }
 }
@@ -799,12 +845,12 @@ async function revocarAsignacion(id) {
 
 // Edición de asignación
 const editingAsigId = ref(null)
-const editAsigData = ref({ condominio_id: '', unidad_id: '', rol_vinculado: '', fecha_fin: '' })
+const editAsigData = ref({ condominio_id: '', unidad_id: '', rol_vinculado: '', fecha_inicio: '', fecha_fin: '' })
 const editAsigUnidades = ref([])
 
 function startEditAsig(a) {
   editingAsigId.value = a.id
-  editAsigData.value = { condominio_id: a.condominio_id, unidad_id: a.unidad_id, rol_vinculado: a.rol_vinculado, fecha_fin: a.fecha_fin || '' }
+  editAsigData.value = { condominio_id: a.condominio_id, unidad_id: a.unidad_id, rol_vinculado: a.rol_vinculado, fecha_inicio: a.fecha_inicio || '', fecha_fin: a.fecha_fin || '' }
   editAsigUnidades.value = unidades.value.filter(u => u.condominioId === a.condominio_id)
 }
 
