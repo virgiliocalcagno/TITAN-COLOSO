@@ -1,4 +1,7 @@
-<script setup>
+const fs = require('fs');
+const path = require('path');
+
+const appVue = `<script setup>
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from './composables/useAuth.js'
@@ -42,7 +45,7 @@ async function handleLogout() {
   await logout()
   router.push('/login')
 }
-</script>
+<\/script>
 
 <template>
   <div v-if="isLoginPage">
@@ -82,3 +85,7 @@ async function handleLogout() {
     </nav>
   </div>
 </template>
+`;
+
+fs.writeFileSync(path.join(__dirname, 'src', 'App.vue'), appVue, 'utf8');
+console.log('OK: App.vue (' + appVue.length + ' chars) - UTF-8');

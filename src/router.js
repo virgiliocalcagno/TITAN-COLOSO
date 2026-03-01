@@ -6,6 +6,7 @@ const Login = () => import('./views/Login.vue')
 const Dashboard = () => import('./views/Dashboard.vue')
 const GenerarQR = () => import('./views/GenerarQR.vue')
 const EscanerSeguridad = () => import('./views/EscanerSeguridad.vue')
+const AdminPanel = () => import('./views/AdminPanel.vue')
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
@@ -37,6 +38,12 @@ const router = createRouter({
             name: 'escaner',
             component: EscanerSeguridad,
             meta: { requiresAuth: true, roles: ['vigilante', 'admin'] }
+        },
+        {
+            path: '/admin',
+            name: 'admin',
+            component: AdminPanel,
+            meta: { requiresAuth: true, roles: ['admin'] }
         }
     ]
 })
@@ -55,6 +62,9 @@ router.beforeEach((to, from, next) => {
         // Redirect based on role
         if (user.role === 'vigilante') {
             return next({ name: 'escaner' })
+        }
+        if (user.role === 'admin') {
+            return next({ name: 'admin' })
         }
         return next({ name: 'dashboard' })
     }
