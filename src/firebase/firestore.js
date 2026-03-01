@@ -373,13 +373,51 @@ export async function updateUnidad(id, data) {
     if (MOCK_MODE) {
         const idx = seedUnidades.findIndex(u => u.id === id)
         if (idx === -1) throw new Error('Unidad no encontrada')
+        const oldUnidad = seedUnidades[idx]
         // Si se cambia codigo_unidad, validar no duplicidad
         if (data.codigo_unidad) {
-            const dup = seedUnidades.find(u => u.id !== id && u.codigo_unidad === data.codigo_unidad && u.agrupadorId === seedUnidades[idx].agrupadorId)
+            const targetAgrupador = data.agrupadorId || oldUnidad.agrupadorId
+            const dup = seedUnidades.find(u => u.id !== id && u.codigo_unidad === data.codigo_unidad && u.agrupadorId === targetAgrupador)
             if (dup) throw new Error(`Codigo ${data.codigo_unidad} ya existe en el mismo agrupador`)
         }
-        seedUnidades[idx] = { ...seedUnidades[idx], ...data }
-        return seedUnidades[idx]
+        // Si se cambia agrupador, actualizar el nombre del agrupador
+        if (data.agrupadorId && data.agrupadorId !== oldUnidad.agrupadorId) {
+            const nuevoAgrupador = seedAgrupadores.find(a => a.id === data.agrupadorId)
+            if (nuevoAgrupador) {
+                data.agrupadorNombre = nuevoAgrupador.nombre
+            }
+        }
+        // Aplicar cambios
+        seedUnidades[idx] = { ...oldUnidad, ...data }
+        const updated = seedUnidades[idx]
+
+        // === PROPAGACIÓN DE INTEGRIDAD ===
+        const newCodigo = updated.codigo_unidad
+        const oldCodigo = oldUnidad.codigo_unidad
+
+        // Propagar a invitaciones si cambió el código
+        if (newCodigo !== oldCodigo) {
+            seedInvitaciones.forEach(inv => {
+                if (inv.unidadId === id) {
+                    inv.unidadNumero = newCodigo
+                }
+            })
+        }
+        // Propagar a asignaciones
+        if (newCodigo !== oldCodigo || (data.agrupadorId && data.agrupadorId !== oldUnidad.agrupadorId)) {
+            seedAsignaciones.forEach(asig => {
+                if (asig.unidad_id === id) {
+                    asig.unidad_codigo = newCodigo
+                    asig.agrupador_nombre = updated.agrupadorNombre || asig.agrupador_nombre
+                    if (data.condominioId) {
+                        asig.condominio_id = data.condominioId
+                        asig.condominio_nombre = updated.condominioNombre || asig.condominio_nombre
+                    }
+                }
+            })
+        }
+
+        return updated
     }
     await updateDoc(doc(db, 'unidades', id), data)
 }

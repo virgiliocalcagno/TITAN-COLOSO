@@ -253,6 +253,7 @@
           <thead class="bg-gray-900/80">
             <tr>
               <th class="text-left px-3 py-2.5 text-gray-400 text-xs font-medium">Codigo</th>
+              <th class="text-left px-3 py-2.5 text-gray-400 text-xs font-medium">Agrupador</th>
               <th class="text-left px-3 py-2.5 text-gray-400 text-xs font-medium">Condo</th>
               <th class="text-left px-3 py-2.5 text-gray-400 text-xs font-medium">Estado</th>
               <th class="text-right px-3 py-2.5 text-gray-400 text-xs font-medium">Acc.</th>
@@ -264,6 +265,13 @@
                 <input v-if="editingId === u.id" v-model="editCodigo" @keyup.enter="guardarEdicion(u)"
                   class="bg-gray-900 border border-purple-500 rounded px-2 py-1 text-purple-300 text-sm font-mono w-20 focus:outline-none" />
                 <span v-else class="text-purple-300 font-mono font-bold">{{ u.codigo_unidad }}</span>
+              </td>
+              <td class="px-3 py-2.5">
+                <select v-if="editingId === u.id" v-model="editAgrupadorId"
+                  class="bg-gray-900 border border-purple-500 rounded px-2 py-1 text-gray-300 text-xs focus:outline-none w-full">
+                  <option v-for="agr in getAgrupadoresForCondo(u.condominioId)" :key="agr.id" :value="agr.id">{{ agr.nombre }}</option>
+                </select>
+                <span v-else class="text-gray-400 text-xs">{{ u.agrupadorNombre }}</span>
               </td>
               <td class="px-3 py-2.5 text-gray-300 text-xs">{{ u.condominioNombre }}</td>
               <td class="px-3 py-2.5">
@@ -285,6 +293,7 @@
         </table>
         <div v-if="!unidadesFiltradas.length" class="p-8 text-center text-gray-500 text-sm">No se encontraron unidades</div>
       </div>
+      <p v-if="editSuccess" class="text-emerald-400 text-xs">{{ editSuccess }}</p>
     </div>
 
     <!-- Tab: Usuarios (Módulo 2) -->
@@ -646,6 +655,8 @@ const filtroCondominio = ref('')
 const searchQuery = ref('')
 const editingId = ref(null)
 const editCodigo = ref('')
+const editAgrupadorId = ref('')
+const editSuccess = ref('')
 
 const unidadesFiltradas = computed(() => {
   let list = unidades.value
@@ -654,10 +665,29 @@ const unidadesFiltradas = computed(() => {
   return list
 })
 
-function iniciarEdicion(u) { editingId.value = u.id; editCodigo.value = u.codigo_unidad }
+function iniciarEdicion(u) {
+  editingId.value = u.id
+  editCodigo.value = u.codigo_unidad
+  editAgrupadorId.value = u.agrupadorId
+  editSuccess.value = ''
+}
+
+function getAgrupadoresForCondo(condoId) {
+  return agrupadores.value.filter(a => a.condominioId === condoId)
+}
 
 async function guardarEdicion(u) {
-  try { await updateUnidad(u.id, { codigo_unidad: editCodigo.value }); editingId.value = null; await refreshData() } catch (e) { alert(e.message) }
+  try {
+    const changes = { codigo_unidad: editCodigo.value }
+    if (editAgrupadorId.value !== u.agrupadorId) {
+      changes.agrupadorId = editAgrupadorId.value
+    }
+    await updateUnidad(u.id, changes)
+    editingId.value = null
+    editSuccess.value = `✓ Unidad actualizada. Integridad propagada a invitaciones y asignaciones.`
+    setTimeout(() => editSuccess.value = '', 4000)
+    await refreshData()
+  } catch (e) { alert(e.message) }
 }
 
 async function eliminarUnidad(id) { await deleteUnidad(id); await refreshData() }
