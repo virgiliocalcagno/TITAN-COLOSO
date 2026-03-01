@@ -25,13 +25,13 @@ const router = createRouter({
             path: '/dashboard',
             name: 'dashboard',
             component: Dashboard,
-            meta: { requiresAuth: true, roles: ['propietario', 'admin'] }
+            meta: { requiresAuth: true, roles: ['propietario', 'inquilino', 'admin'] }
         },
         {
             path: '/generar-qr',
             name: 'generar-qr',
             component: GenerarQR,
-            meta: { requiresAuth: true, roles: ['propietario', 'admin'] }
+            meta: { requiresAuth: true, roles: ['propietario', 'inquilino', 'admin'] }
         },
         {
             path: '/escaner',

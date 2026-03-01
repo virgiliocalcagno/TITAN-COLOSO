@@ -476,6 +476,335 @@ export async function generarUnidadesBatch(config) {
 }
 
 // ============================================
+// USUARIOS (Módulo 2)
+// ============================================
+
+let seedUsuarios = [
+    {
+        id: 'admin-01',
+        nombre: 'Admin',
+        apellido: 'TITAN',
+        cedula: '00100000000',
+        email: 'admin@titan.com',
+        telefono: '+1 (809) 555-9999',
+        rol: 'admin',
+        estado: 'activo',
+        fechaCreacion: '2026-01-01T00:00:00'
+    },
+    {
+        id: 'owner-virgilio',
+        nombre: 'Virgilio',
+        apellido: 'Calcagno',
+        cedula: '00114793025',
+        email: 'propietario@titan.com',
+        telefono: '+1 (809) 555-1000',
+        rol: 'propietario',
+        estado: 'activo',
+        fechaCreacion: '2026-01-15T10:00:00'
+    },
+    {
+        id: 'tenant-01',
+        nombre: 'Laura',
+        apellido: 'Martinez',
+        cedula: '40212345678',
+        email: 'inquilino@titan.com',
+        telefono: '+1 (809) 555-2000',
+        rol: 'inquilino',
+        estado: 'activo',
+        fechaCreacion: '2026-02-01T08:00:00'
+    },
+    {
+        id: 'guard-01',
+        nombre: 'Juan',
+        apellido: 'Seguridad',
+        cedula: '22300112233',
+        email: 'vigilante@titan.com',
+        telefono: '+1 (809) 555-3000',
+        rol: 'vigilante',
+        estado: 'activo',
+        condominioAsignado: 'white-sand',
+        fechaCreacion: '2026-02-10T06:00:00'
+    }
+]
+
+// ============================================
+// ASIGNACIONES UNIDADES (Tabla relacional)
+// ============================================
+
+let seedAsignaciones = [
+    {
+        id: 'asig-001',
+        usuario_id: 'owner-virgilio',
+        unidad_id: 'ws-3a1',
+        condominio_id: 'white-sand',
+        rol_vinculado: 'Propietario',
+        fecha_inicio: '2026-01-15',
+        fecha_fin: null
+    },
+    {
+        id: 'asig-002',
+        usuario_id: 'owner-virgilio',
+        unidad_id: 'sd-1a1',
+        condominio_id: 'sea-dream',
+        rol_vinculado: 'Propietario',
+        fecha_inicio: '2026-01-15',
+        fecha_fin: null
+    },
+    {
+        id: 'asig-003',
+        usuario_id: 'owner-virgilio',
+        unidad_id: 'pb-c4',
+        condominio_id: 'pueblo-bavaro',
+        rol_vinculado: 'Propietario',
+        fecha_inicio: '2026-01-15',
+        fecha_fin: null
+    },
+    {
+        id: 'asig-004',
+        usuario_id: 'tenant-01',
+        unidad_id: 'ws-3b1',
+        condominio_id: 'white-sand',
+        rol_vinculado: 'Inquilino',
+        fecha_inicio: '2026-02-01',
+        fecha_fin: '2026-08-01'
+    }
+]
+
+// ============================================
+// VALIDACIÓN CÉDULA DOMINICANA
+// ============================================
+
+export function validarCedulaDominicana(cedula) {
+    // Limpiar formato: quitar guiones, espacios
+    const clean = cedula.replace(/[-\s]/g, '')
+
+    // Debe tener 11 dígitos
+    if (!/^\d{11}$/.test(clean)) {
+        return { valida: false, mensaje: 'La cédula debe tener 11 dígitos' }
+    }
+
+    // Algoritmo de verificación (Luhn modificado RD)
+    const pesos = [1, 2, 1, 2, 1, 2, 1, 2, 1, 2]
+    let suma = 0
+
+    for (let i = 0; i < 10; i++) {
+        let producto = parseInt(clean[i]) * pesos[i]
+        if (producto >= 10) producto = Math.floor(producto / 10) + (producto % 10)
+        suma += producto
+    }
+
+    const verificador = (10 - (suma % 10)) % 10
+    const esValida = verificador === parseInt(clean[10])
+
+    return {
+        valida: esValida,
+        mensaje: esValida ? 'Cédula válida' : 'Dígito verificador incorrecto',
+        formateada: `${clean.substr(0, 3)}-${clean.substr(3, 7)}-${clean.substr(10, 1)}`
+    }
+}
+
+// ============================================
+// CRUD USUARIOS
+// ============================================
+
+export async function getUsuarios() {
+    if (MOCK_MODE) return seedUsuarios
+    const snap = await getDocs(collection(db, 'usuarios'))
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+}
+
+export async function getUsuario(id) {
+    if (MOCK_MODE) return seedUsuarios.find(u => u.id === id) || null
+    const snap = await getDoc(doc(db, 'usuarios', id))
+    return snap.exists() ? { id: snap.id, ...snap.data() } : null
+}
+
+export async function addUsuario(data) {
+    // Validar cédula
+    const validacion = validarCedulaDominicana(data.cedula || '')
+    if (!validacion.valida) throw new Error(validacion.mensaje)
+
+    // Validar no duplicidad de cédula
+    const cedulaClean = (data.cedula || '').replace(/[-\s]/g, '')
+    const existe = seedUsuarios.find(u => u.cedula.replace(/[-\s]/g, '') === cedulaClean)
+    if (existe) throw new Error('Ya existe un usuario con esta cédula')
+
+    const id = `usr-${Date.now().toString(36)}`
+    const nuevo = {
+        id,
+        ...data,
+        cedula: cedulaClean,
+        estado: 'activo',
+        fechaCreacion: new Date().toISOString()
+    }
+
+    if (MOCK_MODE) {
+        seedUsuarios.push(nuevo)
+        return nuevo
+    }
+
+    await addDoc(collection(db, 'usuarios'), nuevo)
+    return nuevo
+}
+
+export async function updateUsuario(id, data) {
+    if (MOCK_MODE) {
+        const idx = seedUsuarios.findIndex(u => u.id === id)
+        if (idx === -1) throw new Error('Usuario no encontrado')
+        if (data.cedula) {
+            const cedulaClean = data.cedula.replace(/[-\s]/g, '')
+            const dup = seedUsuarios.find(u => u.id !== id && u.cedula.replace(/[-\s]/g, '') === cedulaClean)
+            if (dup) throw new Error('Ya existe un usuario con esta cédula')
+        }
+        seedUsuarios[idx] = { ...seedUsuarios[idx], ...data }
+        return seedUsuarios[idx]
+    }
+    await updateDoc(doc(db, 'usuarios', id), data)
+}
+
+export async function deleteUsuario(id) {
+    // Verificar que no tenga asignaciones activas
+    const asignaciones = seedAsignaciones.filter(a => a.usuario_id === id)
+    if (asignaciones.length) throw new Error('No se puede eliminar: el usuario tiene unidades asignadas. Revoque las asignaciones primero.')
+
+    if (MOCK_MODE) {
+        seedUsuarios = seedUsuarios.filter(u => u.id !== id)
+        return true
+    }
+    await deleteDoc(doc(db, 'usuarios', id))
+}
+
+export async function buscarUsuarioPorCedula(cedula) {
+    const cedulaClean = cedula.replace(/[-\s]/g, '')
+    if (MOCK_MODE) return seedUsuarios.find(u => u.cedula.replace(/[-\s]/g, '') === cedulaClean) || null
+    const q = query(collection(db, 'usuarios'), where('cedula', '==', cedulaClean))
+    const snap = await getDocs(q)
+    return snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() }
+}
+
+export async function buscarUsuarios(termino) {
+    const term = termino.toLowerCase().trim()
+    if (MOCK_MODE) {
+        return seedUsuarios.filter(u =>
+            u.nombre.toLowerCase().includes(term) ||
+            u.apellido.toLowerCase().includes(term) ||
+            u.cedula.includes(term) ||
+            u.email.toLowerCase().includes(term)
+        )
+    }
+    // En Firestore real se usaría Algolia o una query más compleja
+    const snap = await getDocs(collection(db, 'usuarios'))
+    return snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(u =>
+        u.nombre?.toLowerCase().includes(term) ||
+        u.apellido?.toLowerCase().includes(term) ||
+        u.cedula?.includes(term)
+    )
+}
+
+// ============================================
+// CRUD ASIGNACIONES
+// ============================================
+
+export async function getAsignaciones() {
+    if (MOCK_MODE) {
+        return seedAsignaciones.map(a => {
+            const usuario = seedUsuarios.find(u => u.id === a.usuario_id)
+            const unidad = seedUnidades.find(u => u.id === a.unidad_id)
+            const condo = seedCondominios.find(c => c.id === a.condominio_id)
+            return {
+                ...a,
+                usuario_nombre: usuario ? `${usuario.nombre} ${usuario.apellido}` : 'Desconocido',
+                usuario_cedula: usuario?.cedula || '',
+                unidad_codigo: unidad?.codigo_unidad || '',
+                condominio_nombre: condo?.nombre || '',
+                agrupador_nombre: unidad?.agrupadorNombre || ''
+            }
+        })
+    }
+    const snap = await getDocs(collection(db, 'asignaciones_unidades'))
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+}
+
+export async function getAsignacionesByUsuario(usuarioId) {
+    if (MOCK_MODE) {
+        return seedAsignaciones
+            .filter(a => a.usuario_id === usuarioId)
+            .map(a => {
+                const unidad = seedUnidades.find(u => u.id === a.unidad_id)
+                const condo = seedCondominios.find(c => c.id === a.condominio_id)
+                return {
+                    ...a,
+                    unidad_codigo: unidad?.codigo_unidad || '',
+                    condominio_nombre: condo?.nombre || '',
+                    agrupador_nombre: unidad?.agrupadorNombre || ''
+                }
+            })
+    }
+    const q = query(collection(db, 'asignaciones_unidades'), where('usuario_id', '==', usuarioId))
+    const snap = await getDocs(q)
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+}
+
+export async function getAsignacionesByUnidad(unidadId) {
+    if (MOCK_MODE) {
+        return seedAsignaciones.filter(a => a.unidad_id === unidadId).map(a => {
+            const usuario = seedUsuarios.find(u => u.id === a.usuario_id)
+            return {
+                ...a,
+                usuario_nombre: usuario ? `${usuario.nombre} ${usuario.apellido}` : 'Desconocido',
+                usuario_cedula: usuario?.cedula || ''
+            }
+        })
+    }
+    const q = query(collection(db, 'asignaciones_unidades'), where('unidad_id', '==', unidadId))
+    const snap = await getDocs(q)
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+}
+
+export async function addAsignacion(data) {
+    // Validar que la unidad no esté ya asignada con el mismo rol
+    const existente = seedAsignaciones.find(a =>
+        a.unidad_id === data.unidad_id &&
+        a.usuario_id === data.usuario_id
+    )
+    if (existente) throw new Error('Este usuario ya tiene una asignación a esta unidad')
+
+    const id = `asig-${Date.now().toString(36)}`
+    const nueva = {
+        id,
+        ...data,
+        fecha_inicio: data.fecha_inicio || new Date().toISOString().split('T')[0],
+        fecha_fin: data.fecha_fin || null
+    }
+
+    if (MOCK_MODE) {
+        seedAsignaciones.push(nueva)
+        // Actualizar propietarioId en la unidad si es propietario
+        if (data.rol_vinculado === 'Propietario') {
+            const unidadIdx = seedUnidades.findIndex(u => u.id === data.unidad_id)
+            if (unidadIdx !== -1) seedUnidades[unidadIdx].propietarioId = data.usuario_id
+        }
+        return nueva
+    }
+
+    await addDoc(collection(db, 'asignaciones_unidades'), nueva)
+    return nueva
+}
+
+export async function removeAsignacion(id) {
+    if (MOCK_MODE) {
+        const asig = seedAsignaciones.find(a => a.id === id)
+        if (asig && asig.rol_vinculado === 'Propietario') {
+            const unidadIdx = seedUnidades.findIndex(u => u.id === asig.unidad_id)
+            if (unidadIdx !== -1) seedUnidades[unidadIdx].propietarioId = null
+        }
+        seedAsignaciones = seedAsignaciones.filter(a => a.id !== id)
+        return true
+    }
+    await deleteDoc(doc(db, 'asignaciones_unidades', id))
+}
+
+// ============================================
 // ESTADÍSTICAS ADMIN
 // ============================================
 
@@ -487,5 +816,7 @@ export function getAdminStats() {
         unidadesActivas: seedUnidades.filter(u => u.estado).length,
         unidadesAsignadas: seedUnidades.filter(u => u.propietarioId).length,
         unidadesLibres: seedUnidades.filter(u => !u.propietarioId).length,
+        totalUsuarios: seedUsuarios.length,
+        totalAsignaciones: seedAsignaciones.length,
     }
 }

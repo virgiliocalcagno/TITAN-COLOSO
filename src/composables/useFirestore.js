@@ -42,6 +42,23 @@ export function useFirestore() {
     const getActividadReciente = (limit) => execute(firestoreService.getActividadReciente, limit)
     const registrarActividad = (data) => execute(firestoreService.registrarActividad, data)
 
+    // Usuarios (Módulo 2)
+    const getUsuarios = () => execute(firestoreService.getUsuarios)
+    const getUsuario = (id) => execute(firestoreService.getUsuario, id)
+    const addUsuario = (data) => execute(firestoreService.addUsuario, data)
+    const updateUsuario = (id, data) => execute(firestoreService.updateUsuario, id, data)
+    const deleteUsuario = (id) => execute(firestoreService.deleteUsuario, id)
+    const buscarUsuarioPorCedula = (cedula) => execute(firestoreService.buscarUsuarioPorCedula, cedula)
+    const buscarUsuarios = (termino) => execute(firestoreService.buscarUsuarios, termino)
+    const validarCedulaDominicana = (cedula) => firestoreService.validarCedulaDominicana(cedula)
+
+    // Asignaciones (Módulo 2)
+    const getAsignaciones = () => execute(firestoreService.getAsignaciones)
+    const getAsignacionesByUsuario = (uid) => execute(firestoreService.getAsignacionesByUsuario, uid)
+    const getAsignacionesByUnidad = (uid) => execute(firestoreService.getAsignacionesByUnidad, uid)
+    const addAsignacion = (data) => execute(firestoreService.addAsignacion, data)
+    const removeAsignacion = (id) => execute(firestoreService.removeAsignacion, id)
+
     return {
         loading,
         error,
@@ -60,6 +77,21 @@ export function useFirestore() {
         updateInvitacionEstatus,
         // Actividad
         getActividadReciente,
-        registrarActividad
+        registrarActividad,
+        // Usuarios
+        getUsuarios,
+        getUsuario,
+        addUsuario,
+        updateUsuario,
+        deleteUsuario,
+        buscarUsuarioPorCedula,
+        buscarUsuarios,
+        validarCedulaDominicana,
+        // Asignaciones
+        getAsignaciones,
+        getAsignacionesByUsuario,
+        getAsignacionesByUnidad,
+        addAsignacion,
+        removeAsignacion,
     }
 }

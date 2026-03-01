@@ -14,6 +14,7 @@ const isLoading = ref(false)
 
 const demoAccounts = [
   { label: 'Propietario', email: 'propietario@titan.com', icon: '\uD83C\uDFE0' },
+  { label: 'Inquilino', email: 'inquilino@titan.com', icon: '\uD83D\uDD11' },
   { label: 'Vigilante', email: 'vigilante@titan.com', icon: '\uD83D\uDEE1\uFE0F' },
   { label: 'Admin', email: 'admin@titan.com', icon: '\u2699\uFE0F' },
 ]
@@ -87,7 +88,7 @@ async function handleLogin() {
 
       <div class="glass-card p-4 space-y-3">
         <p class="text-xs text-white/40 text-center uppercase tracking-wider">Cuentas Demo</p>
-        <div class="grid grid-cols-3 gap-2">
+        <div class="grid grid-cols-4 gap-2">
           <button v-for="acc in demoAccounts" :key="acc.email" @click="selectDemo(acc)" class="flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl transition-all" :class="email === acc.email ? 'bg-titan-500/20 border border-titan-500/30' : 'bg-white/5 hover:bg-white/10'">
             <span class="text-lg">{{ acc.icon }}</span>
             <span class="text-[10px] font-medium" :class="email === acc.email ? 'text-titan-400' : 'text-white/50'">{{ acc.label }}</span>
