@@ -58,6 +58,17 @@ export function useFirestore() {
     const getAsignacionesByUnidad = (uid) => execute(firestoreService.getAsignacionesByUnidad, uid)
     const addAsignacion = (data) => execute(firestoreService.addAsignacion, data)
     const removeAsignacion = (id) => execute(firestoreService.removeAsignacion, id)
+    const editarAsignacion = (id, data) => execute(firestoreService.editarAsignacion, id, data)
+
+    // Invitaciones extendidas (Módulo 3)
+    const updateInvitacion = (id, data) => execute(firestoreService.updateInvitacion, id, data)
+
+    // Delivery Pulso (Módulo 3)
+    const getSolicitudesDelivery = () => execute(firestoreService.getSolicitudesDelivery)
+    const getSolicitudesPendientesByUnidad = (uid) => execute(firestoreService.getSolicitudesPendientesByUnidad, uid)
+    const crearSolicitudDelivery = (data) => execute(firestoreService.crearSolicitudDelivery, data)
+    const responderSolicitudDelivery = (id, resp, uid) => execute(firestoreService.responderSolicitudDelivery, id, resp, uid)
+    const getSolicitudDelivery = (id) => execute(firestoreService.getSolicitudDelivery, id)
 
     return {
         loading,
@@ -93,5 +104,14 @@ export function useFirestore() {
         getAsignacionesByUnidad,
         addAsignacion,
         removeAsignacion,
+        editarAsignacion,
+        // Invitaciones extendidas
+        updateInvitacion,
+        // Delivery Pulso
+        getSolicitudesDelivery,
+        getSolicitudesPendientesByUnidad,
+        crearSolicitudDelivery,
+        responderSolicitudDelivery,
+        getSolicitudDelivery,
     }
 }

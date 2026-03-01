@@ -353,23 +353,45 @@
       <!-- Lista de Usuarios -->
       <div class="space-y-2">
         <div v-for="u in filteredUsers" :key="u.id"
-          class="bg-gray-800/50 rounded-xl border border-gray-700/40 p-3 flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold"
-            :class="u.rol === 'admin' ? 'bg-red-500/20 text-red-300' : u.rol === 'propietario' ? 'bg-emerald-500/20 text-emerald-300' : u.rol === 'inquilino' ? 'bg-amber-500/20 text-amber-300' : 'bg-blue-500/20 text-blue-300'">
-            {{ u.nombre[0] }}{{ u.apellido[0] }}
+          class="bg-gray-800/50 rounded-xl border border-gray-700/40 p-3">
+          <!-- Editing mode -->
+          <div v-if="editingUserId === u.id" class="space-y-2">
+            <div class="grid grid-cols-2 gap-2">
+              <input v-model="editUserData.nombre" placeholder="Nombre" class="bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none" />
+              <input v-model="editUserData.apellido" placeholder="Apellido" class="bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none" />
+            </div>
+            <input v-model="editUserData.email" placeholder="Email" class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none" />
+            <input v-model="editUserData.telefono" placeholder="Teléfono" class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none" />
+            <div class="flex gap-2">
+              <button @click="guardarEdicionUsuario(u.id)" class="flex-1 py-2 rounded-lg text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-500 transition-all flex items-center justify-center gap-1"><Check :size="14" /> Guardar</button>
+              <button @click="editingUserId = null" class="flex-1 py-2 rounded-lg text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 transition-all">Cancelar</button>
+            </div>
           </div>
-          <div class="flex-1 min-w-0">
-            <p class="text-white text-sm font-medium truncate">{{ u.nombre }} {{ u.apellido }}</p>
-            <p class="text-gray-400 text-[11px]">{{ formatCedula(u.cedula) }} · {{ u.email }}</p>
-          </div>
-          <div class="flex flex-col items-end gap-1">
-            <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold capitalize"
+          <!-- View mode -->
+          <div v-else class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold"
               :class="u.rol === 'admin' ? 'bg-red-500/20 text-red-300' : u.rol === 'propietario' ? 'bg-emerald-500/20 text-emerald-300' : u.rol === 'inquilino' ? 'bg-amber-500/20 text-amber-300' : 'bg-blue-500/20 text-blue-300'">
-              {{ u.rol }}
-            </span>
-            <button v-if="u.rol !== 'admin'" @click="eliminarUsuarioHandler(u.id)" class="text-red-400/40 hover:text-red-400 transition-colors">
-              <Trash2 :size="13" />
-            </button>
+              {{ u.nombre[0] }}{{ u.apellido[0] }}
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-white text-sm font-medium truncate">{{ u.nombre }} {{ u.apellido }}</p>
+              <p class="text-gray-400 text-[11px]">{{ formatCedula(u.cedula) }} · {{ u.email }}</p>
+              <p v-if="u.telefono" class="text-gray-500 text-[10px]">Tel: {{ u.telefono }}</p>
+            </div>
+            <div class="flex flex-col items-end gap-1">
+              <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold capitalize"
+                :class="u.rol === 'admin' ? 'bg-red-500/20 text-red-300' : u.rol === 'propietario' ? 'bg-emerald-500/20 text-emerald-300' : u.rol === 'inquilino' ? 'bg-amber-500/20 text-amber-300' : 'bg-blue-500/20 text-blue-300'">
+                {{ u.rol }}
+              </span>
+              <div v-if="u.rol !== 'admin'" class="flex gap-1">
+                <button @click="startEditUser(u)" class="text-cyan-400/40 hover:text-cyan-400 transition-colors p-0.5" title="Editar">
+                  <Pencil :size="13" />
+                </button>
+                <button @click="eliminarUsuarioHandler(u.id)" class="text-red-400/40 hover:text-red-400 transition-colors p-0.5" title="Eliminar">
+                  <Trash2 :size="13" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
         <div v-if="!filteredUsers.length" class="text-center py-8 text-gray-500 text-sm">No hay usuarios</div>
@@ -460,18 +482,58 @@
       <h3 class="text-sm font-semibold text-white/60 uppercase tracking-wider px-1">Asignaciones Activas ({{ asignaciones.length }})</h3>
       <div class="space-y-2">
         <div v-for="a in asignaciones" :key="a.id"
-          class="bg-gray-800/50 rounded-xl border border-gray-700/40 p-3 flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
-            <Link :size="18" class="text-amber-400" />
+          class="bg-gray-800/50 rounded-xl border border-gray-700/40 p-3">
+          <!-- Editing mode -->
+          <div v-if="editingAsigId === a.id" class="space-y-2">
+            <p class="text-white text-sm font-medium">{{ a.usuario_nombre }}</p>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="text-[10px] text-gray-500 uppercase">Condominio</label>
+                <select v-model="editAsigData.condominio_id" @change="onEditAsigCondoChange" class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none">
+                  <option v-for="c in condominios" :key="c.id" :value="c.id">{{ c.nombre }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-[10px] text-gray-500 uppercase">Unidad</label>
+                <select v-model="editAsigData.unidad_id" class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none">
+                  <option v-for="u in editAsigUnidades" :key="u.id" :value="u.id">{{ u.agrupadorNombre }} · {{ u.codigo_unidad }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-[10px] text-gray-500 uppercase">Rol</label>
+                <select v-model="editAsigData.rol_vinculado" class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none">
+                  <option>Propietario</option><option>Inquilino</option><option>Familiar</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-[10px] text-gray-500 uppercase">Fecha fin</label>
+                <input v-model="editAsigData.fecha_fin" type="date" class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none" />
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <button @click="guardarEdicionAsignacion(a.id)" class="flex-1 py-2 rounded-lg text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-500 transition-all flex items-center justify-center gap-1"><Check :size="14" /> Guardar</button>
+              <button @click="editingAsigId = null" class="flex-1 py-2 rounded-lg text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 transition-all">Cancelar</button>
+            </div>
           </div>
-          <div class="flex-1 min-w-0">
-            <p class="text-white text-sm font-medium truncate">{{ a.usuario_nombre }}</p>
-            <p class="text-gray-400 text-[11px]">{{ a.condominio_nombre }} · {{ a.agrupador_nombre }} · {{ a.unidad_codigo }}</p>
-            <p class="text-gray-500 text-[10px]">{{ a.rol_vinculado }} · Desde {{ a.fecha_inicio }}{{ a.fecha_fin ? ' hasta ' + a.fecha_fin : ' (permanente)' }}</p>
+          <!-- View mode -->
+          <div v-else class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
+              <Link :size="18" class="text-amber-400" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-white text-sm font-medium truncate">{{ a.usuario_nombre }}</p>
+              <p class="text-gray-400 text-[11px]">{{ a.condominio_nombre }} · {{ a.agrupador_nombre }} · {{ a.unidad_codigo }}</p>
+              <p class="text-gray-500 text-[10px]">{{ a.rol_vinculado }} · Desde {{ a.fecha_inicio }}{{ a.fecha_fin ? ' hasta ' + a.fecha_fin : ' (permanente)' }}</p>
+            </div>
+            <div class="flex gap-1">
+              <button @click="startEditAsig(a)" class="text-cyan-400/40 hover:text-cyan-400 transition-colors p-1" title="Editar">
+                <Pencil :size="14" />
+              </button>
+              <button @click="revocarAsignacion(a.id)" class="text-red-400/50 hover:text-red-400 transition-colors p-1" title="Revocar">
+                <X :size="16" />
+              </button>
+            </div>
           </div>
-          <button @click="revocarAsignacion(a.id)" class="text-red-400/50 hover:text-red-400 transition-colors p-1" title="Revocar">
-            <X :size="16" />
-          </button>
         </div>
         <div v-if="!asignaciones.length" class="text-center py-8 text-gray-500 text-sm">No hay asignaciones creadas</div>
       </div>
@@ -486,9 +548,9 @@ import {
   getCondominios, getUnidades, getAgrupadores, getAdminStats,
   addCondominio, deleteCondominio, deleteUnidad, updateUnidad,
   generarNomenclaturaPreview, generarUnidadesBatch,
-  getUsuarios, addUsuario, deleteUsuario, buscarUsuarios,
+  getUsuarios, addUsuario, updateUsuario, deleteUsuario, buscarUsuarios,
   validarCedulaDominicana,
-  getAsignaciones, addAsignacion, removeAsignacion
+  getAsignaciones, addAsignacion, removeAsignacion, editarAsignacion
 } from '../firebase/firestore.js'
 
 // State
@@ -639,6 +701,23 @@ async function eliminarUsuarioHandler(id) {
   try { await deleteUsuario(id); await refreshData() } catch (e) { alert(e.message) }
 }
 
+// Edición de usuario
+const editingUserId = ref(null)
+const editUserData = ref({ nombre: '', apellido: '', email: '', telefono: '' })
+
+function startEditUser(u) {
+  editingUserId.value = u.id
+  editUserData.value = { nombre: u.nombre, apellido: u.apellido, email: u.email || '', telefono: u.telefono || '' }
+}
+
+async function guardarEdicionUsuario(id) {
+  try {
+    await updateUsuario(id, editUserData.value)
+    editingUserId.value = null
+    await refreshData()
+  } catch (e) { alert(e.message) }
+}
+
 function formatCedula(c) {
   if (!c || c.length !== 11) return c || ''
   return `${c.substr(0, 3)}-${c.substr(3, 7)}-${c.substr(10, 1)}`
@@ -686,6 +765,30 @@ async function crearAsignacion() {
 
 async function revocarAsignacion(id) {
   try { await removeAsignacion(id); await refreshData() } catch (e) { alert(e.message) }
+}
+
+// Edición de asignación
+const editingAsigId = ref(null)
+const editAsigData = ref({ condominio_id: '', unidad_id: '', rol_vinculado: '', fecha_fin: '' })
+const editAsigUnidades = ref([])
+
+function startEditAsig(a) {
+  editingAsigId.value = a.id
+  editAsigData.value = { condominio_id: a.condominio_id, unidad_id: a.unidad_id, rol_vinculado: a.rol_vinculado, fecha_fin: a.fecha_fin || '' }
+  editAsigUnidades.value = unidades.value.filter(u => u.condominioId === a.condominio_id)
+}
+
+function onEditAsigCondoChange() {
+  editAsigData.value.unidad_id = ''
+  editAsigUnidades.value = unidades.value.filter(u => u.condominioId === editAsigData.value.condominio_id)
+}
+
+async function guardarEdicionAsignacion(id) {
+  try {
+    await editarAsignacion(id, editAsigData.value)
+    editingAsigId.value = null
+    await refreshData()
+  } catch (e) { alert(e.message) }
 }
 
 // ---- Helpers ----

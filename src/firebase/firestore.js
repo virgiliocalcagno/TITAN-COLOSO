@@ -232,6 +232,19 @@ export async function updateInvitacionEstatus(invitacionId, nuevoEstatus) {
     })
 }
 
+export async function updateInvitacion(invitacionId, data) {
+    if (MOCK_MODE) {
+        const idx = seedInvitaciones.findIndex(i => i.id === invitacionId)
+        if (idx === -1) throw new Error('Invitación no encontrada')
+        seedInvitaciones[idx] = { ...seedInvitaciones[idx], ...data }
+        return seedInvitaciones[idx]
+    }
+    await updateDoc(doc(db, 'invitaciones', invitacionId), {
+        ...data,
+        updatedAt: serverTimestamp()
+    })
+}
+
 // ============================================
 // ACTIVIDAD (Log de accesos)
 // ============================================
@@ -804,6 +817,119 @@ export async function removeAsignacion(id) {
     await deleteDoc(doc(db, 'asignaciones_unidades', id))
 }
 
+export async function editarAsignacion(id, data) {
+    if (MOCK_MODE) {
+        const idx = seedAsignaciones.findIndex(a => a.id === id)
+        if (idx === -1) throw new Error('Asignación no encontrada')
+        // Si cambia unidad y era propietario, limpiar la anterior
+        const old = seedAsignaciones[idx]
+        if (old.rol_vinculado === 'Propietario' && data.unidad_id && data.unidad_id !== old.unidad_id) {
+            const oldUIdx = seedUnidades.findIndex(u => u.id === old.unidad_id)
+            if (oldUIdx !== -1) seedUnidades[oldUIdx].propietarioId = null
+        }
+        seedAsignaciones[idx] = { ...old, ...data }
+        // Si es propietario, actualizar nueva unidad
+        const updated = seedAsignaciones[idx]
+        if (updated.rol_vinculado === 'Propietario') {
+            const newUIdx = seedUnidades.findIndex(u => u.id === updated.unidad_id)
+            if (newUIdx !== -1) seedUnidades[newUIdx].propietarioId = updated.usuario_id
+        }
+        return updated
+    }
+    await updateDoc(doc(db, 'asignaciones_unidades', id), { ...data, updatedAt: serverTimestamp() })
+}
+
+// ============================================
+// SISTEMA PULSO — DELIVERY
+// ============================================
+
+let seedSolicitudesDelivery = [
+    {
+        id: 'sol-001',
+        unidad_id: 'ws-3a1',
+        unidad_codigo: '3A1',
+        condominio_id: 'white-sand',
+        condominio_nombre: 'White Sand',
+        agrupador_nombre: 'Edificio 3',
+        visitante_nombre: 'PedidosYa',
+        motivo: 'Delivery de comida',
+        solicitado_por: 'vigilante-01',
+        estado: 'autorizado', // pendiente | autorizado | rechazado
+        respondido_por: 'owner-virgilio',
+        fecha_solicitud: '2026-02-28T14:30:00',
+        fecha_respuesta: '2026-02-28T14:31:15'
+    }
+]
+
+export async function getSolicitudesDelivery() {
+    if (MOCK_MODE) return [...seedSolicitudesDelivery].sort((a, b) => new Date(b.fecha_solicitud) - new Date(a.fecha_solicitud))
+    const q = query(collection(db, 'solicitudes_delivery'), orderBy('fecha_solicitud', 'desc'))
+    const snap = await getDocs(q)
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+}
+
+export async function getSolicitudesPendientesByUnidad(unidadId) {
+    if (MOCK_MODE) return seedSolicitudesDelivery.filter(s => s.unidad_id === unidadId && s.estado === 'pendiente')
+    const q = query(collection(db, 'solicitudes_delivery'), where('unidad_id', '==', unidadId), where('estado', '==', 'pendiente'))
+    const snap = await getDocs(q)
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+}
+
+export async function crearSolicitudDelivery(data) {
+    const solicitud = {
+        id: 'sol-' + Date.now(),
+        unidad_id: data.unidad_id,
+        unidad_codigo: data.unidad_codigo,
+        condominio_id: data.condominio_id,
+        condominio_nombre: data.condominio_nombre,
+        agrupador_nombre: data.agrupador_nombre || '',
+        visitante_nombre: data.visitante_nombre,
+        motivo: data.motivo || 'Delivery',
+        solicitado_por: data.solicitado_por || 'vigilante',
+        estado: 'pendiente',
+        respondido_por: null,
+        fecha_solicitud: new Date().toISOString(),
+        fecha_respuesta: null
+    }
+    if (MOCK_MODE) {
+        seedSolicitudesDelivery.push(solicitud)
+        // Simular respuesta automática después de 5s en mock mode
+        setTimeout(() => {
+            const idx = seedSolicitudesDelivery.findIndex(s => s.id === solicitud.id)
+            if (idx !== -1 && seedSolicitudesDelivery[idx].estado === 'pendiente') {
+                seedSolicitudesDelivery[idx].estado = 'autorizado'
+                seedSolicitudesDelivery[idx].respondido_por = 'owner-virgilio'
+                seedSolicitudesDelivery[idx].fecha_respuesta = new Date().toISOString()
+            }
+        }, 5000)
+        return solicitud
+    }
+    await addDoc(collection(db, 'solicitudes_delivery'), solicitud)
+    return solicitud
+}
+
+export async function responderSolicitudDelivery(id, respuesta, userId) {
+    if (MOCK_MODE) {
+        const idx = seedSolicitudesDelivery.findIndex(s => s.id === id)
+        if (idx === -1) throw new Error('Solicitud no encontrada')
+        seedSolicitudesDelivery[idx].estado = respuesta // 'autorizado' | 'rechazado'
+        seedSolicitudesDelivery[idx].respondido_por = userId || 'owner'
+        seedSolicitudesDelivery[idx].fecha_respuesta = new Date().toISOString()
+        return seedSolicitudesDelivery[idx]
+    }
+    await updateDoc(doc(db, 'solicitudes_delivery', id), {
+        estado: respuesta,
+        respondido_por: userId,
+        fecha_respuesta: new Date().toISOString()
+    })
+}
+
+export async function getSolicitudDelivery(id) {
+    if (MOCK_MODE) return seedSolicitudesDelivery.find(s => s.id === id) || null
+    const d = await getDoc(doc(db, 'solicitudes_delivery', id))
+    return d.exists() ? { id: d.id, ...d.data() } : null
+}
+
 // ============================================
 // ESTADÍSTICAS ADMIN
 // ============================================
@@ -818,5 +944,6 @@ export function getAdminStats() {
         unidadesLibres: seedUnidades.filter(u => !u.propietarioId).length,
         totalUsuarios: seedUsuarios.length,
         totalAsignaciones: seedAsignaciones.length,
+        totalSolicitudesDelivery: seedSolicitudesDelivery.length,
     }
 }
