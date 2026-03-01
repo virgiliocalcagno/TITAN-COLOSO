@@ -285,10 +285,12 @@ export async function updateCondominio(id, data) {
 }
 
 export async function deleteCondominio(id) {
-    // Validar que no tiene unidades con historial
-    const unidades = seedUnidades.filter(u => u.condominioId === id)
-    const tieneHistorial = seedInvitaciones.some(i => i.condominioId === id)
-    if (tieneHistorial) throw new Error('No se puede eliminar: tiene historial de accesos registrado')
+    // Solo bloquear si tiene actividad de acceso real (bitácora), no invitaciones pendientes
+    const tieneActividad = seedActividad.some(a => {
+        const condoMatch = seedUnidades.filter(u => u.condominioId === id)
+        return condoMatch.some(u => a.unidad === u.codigo_unidad)
+    })
+    if (tieneActividad) throw new Error('No se puede eliminar: tiene registros de acceso en la bitácora')
     if (MOCK_MODE) {
         seedUnidades = seedUnidades.filter(u => u.condominioId !== id)
         seedAgrupadores = seedAgrupadores.filter(a => a.condominioId !== id)
