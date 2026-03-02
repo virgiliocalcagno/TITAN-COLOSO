@@ -1,12 +1,3 @@
-// Firebase Auth Service
-// Funciona con mock data cuando no hay credenciales configuradas
-import { auth } from './config.js'
-import {
-    signInWithEmailAndPassword,
-    createUserWithEmailAndPassword,
-    signOut,
-    onAuthStateChanged
-} from 'firebase/auth'
 import { doc, setDoc, getDoc } from 'firebase/firestore'
 import { auth, db } from './config.js'
 import { buscarUsuarioPorEmail, getUsuario, seedUsuarios } from './firestore.js'
