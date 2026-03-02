@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useAuth } from '../composables/useAuth.js'
 import { useFirestore } from '../composables/useFirestore.js'
 import QRCode from 'qrcode'
-import { ChevronDown, Calendar, Clock, User, Building2, Copy, Share2, CheckCircle2, Camera, FileText, Edit3, ArrowLeft, ArrowRight, X, ImageIcon } from 'lucide-vue-next'
+import { ChevronDown, Calendar, Clock, User, Building2, Copy, Share2, CheckCircle2, Camera, FileText, Edit3, ArrowLeft, ArrowRight, X, ImageIcon, Download } from 'lucide-vue-next'
 
 const { userId } = useAuth()
 const { getCondominios, getUnidadesByPropietario, createInvitacion } = useFirestore()
@@ -18,25 +18,31 @@ const tipoDocumento = ref('cedula')
 const tipoVisitante = ref('Huesped')
 const fechaExpiracion = ref('')
 const horaExpiracion = ref('12:00')
+const fechaInicio = ref('')
+const fechaSalida = ref('')
 const fotoDocumento = ref(null)
 const qrGenerado = ref(false)
 const qrCodigo = ref('')
 const qrImageSrc = ref('')
 const copiado = ref(false)
 const isLoading = ref(false)
-const paso = ref(1) // 1=formulario, 2=revision, 3=qr generado
+const paso = ref(1) // 1=formulario, 2=revision, 3=qr/gafete generado
 
 // Camera
 const cameraActive = ref(false)
 const cameraStream = ref(null)
 const videoRef = ref(null)
+const gafeteRef = ref(null)
 
 const tiposVisitante = [
   { id: 'Huesped', label: 'Invitado', icon: '👤' },
   { id: 'Tecnico', label: 'Técnico', icon: '🔧' },
   { id: 'Familiar', label: 'Familia', icon: '👪' },
   { id: 'Delivery', label: 'Delivery', icon: '🚚' },
+  { id: 'Airbnb', label: 'Airbnb', icon: '🏖️' },
 ]
+
+const esAirbnb = computed(() => tipoVisitante.value === 'Airbnb')
 
 onMounted(async () => {
   condominios.value = await getCondominios() || []
@@ -44,6 +50,7 @@ onMounted(async () => {
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
   fechaExpiracion.value = tomorrow.toISOString().split('T')[0]
+  fechaInicio.value = new Date().toISOString().split('T')[0]
 })
 
 onUnmounted(() => { stopCamera() })
@@ -54,7 +61,11 @@ const unidadesFiltradas = computed(() => {
 })
 const condominioSeleccionado = computed(() => condominios.value.find(c => c.id === selectedCondominio.value))
 const unidadSeleccionada = computed(() => unidades.value.find(u => u.id === selectedUnidad.value))
-const formularioValido = computed(() => selectedCondominio.value && selectedUnidad.value && nombreVisitante.value.trim() && fechaExpiracion.value)
+const formularioValido = computed(() => {
+  if (!selectedCondominio.value || !selectedUnidad.value || !nombreVisitante.value.trim() || !fechaExpiracion.value) return false
+  if (esAirbnb.value && (!fechaInicio.value || !fechaSalida.value)) return false
+  return true
+})
 
 // Camera functions
 async function openCamera() {
@@ -113,12 +124,16 @@ async function generarQR() {
       documentoId: documentoId.value,
       tipoDocumento: tipoDocumento.value,
       tipo: tipoVisitante.value,
-      fechaExpiracion: fechaExpiracion.value + 'T' + horaExpiracion.value + ':00',
+      fechaExpiracion: esAirbnb.value
+        ? fechaSalida.value + 'T23:59:00'
+        : fechaExpiracion.value + 'T' + horaExpiracion.value + ':00',
+      fechaInicio: esAirbnb.value ? fechaInicio.value : null,
+      fechaSalida: esAirbnb.value ? fechaSalida.value : null,
       fotoDocumento: fotoDocumento.value
     })
     qrCodigo.value = inv.idQR
     // Generate real QR image
-    qrImageSrc.value = await QRCode.toDataURL(inv.idQR, { width: 256, margin: 2, color: { dark: '#1a1a2e', light: '#ffffff' } })
+    qrImageSrc.value = await QRCode.toDataURL(inv.idQR, { width: 300, margin: 2, color: { dark: '#1a1a2e', light: '#ffffff' } })
     paso.value = 3
     qrGenerado.value = true
   } finally {
@@ -133,8 +148,24 @@ function copiarCodigo() {
 }
 
 function compartirWhatsApp() {
-  const texto = `TITAN Coloso - Acceso Autorizado%0A%0ACodigo: ${qrCodigo.value}%0ADestino: ${condominioSeleccionado.value?.nombre} - ${unidadSeleccionada.value?.codigo_unidad || unidadSeleccionada.value?.numero}%0AExpira: ${fechaExpiracion.value} ${horaExpiracion.value}%0A%0AMuestra este codigo al vigilante de garita.`
+  let texto = `🔐 TITAN Coloso - Acceso Autorizado%0A%0A`
+  texto += `👤 Visitante: ${nombreVisitante.value}%0A`
+  texto += `🏢 Destino: ${condominioSeleccionado.value?.nombre} - ${unidadSeleccionada.value?.codigo_unidad || unidadSeleccionada.value?.numero}%0A`
+  if (esAirbnb.value) {
+    texto += `📅 Check-in: ${fechaInicio.value}%0A`
+    texto += `📅 Check-out: ${fechaSalida.value}%0A`
+  } else {
+    texto += `⏰ Expira: ${fechaExpiracion.value} ${horaExpiracion.value}%0A`
+  }
+  texto += `🎫 Código: ${qrCodigo.value}%0A%0A`
+  texto += `Muestra este código al vigilante de garita.`
   window.open(`https://wa.me/?text=${texto}`, '_blank')
+}
+
+function formatFecha(f) {
+  if (!f) return ''
+  const d = new Date(f + 'T12:00:00')
+  return d.toLocaleDateString('es-DO', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 function resetFormulario() {
@@ -146,6 +177,8 @@ function resetFormulario() {
   documentoId.value = ''
   fotoDocumento.value = null
   fechaExpiracion.value = ''
+  fechaInicio.value = ''
+  fechaSalida.value = ''
 }
 </script>
 
@@ -218,14 +251,33 @@ function resetFormulario() {
 
       <div class="glass-card p-4 space-y-3" v-if="selectedUnidad">
         <label class="text-xs font-semibold text-white/60 uppercase tracking-wider">Tipo de Acceso</label>
-        <div class="grid grid-cols-2 gap-2">
-          <button v-for="tipo in tiposVisitante" :key="tipo.id" @click="tipoVisitante = tipo.id" class="py-3 px-3 rounded-xl text-sm font-medium transition-all flex items-center gap-2" :class="tipoVisitante === tipo.id ? 'bg-titan-500 text-white shadow-lg shadow-titan-500/30' : 'bg-white/5 text-white/60 hover:bg-white/10'">
-            <span>{{ tipo.icon }}</span>{{ tipo.label }}
+        <div class="grid grid-cols-3 gap-2">
+          <button v-for="tipo in tiposVisitante" :key="tipo.id" @click="tipoVisitante = tipo.id" class="py-3 px-2 rounded-xl text-xs font-medium transition-all flex flex-col items-center gap-1" :class="tipoVisitante === tipo.id ? 'bg-titan-500 text-white shadow-lg shadow-titan-500/30' : 'bg-white/5 text-white/60 hover:bg-white/10'">
+            <span class="text-lg">{{ tipo.icon }}</span>{{ tipo.label }}
           </button>
         </div>
       </div>
 
-      <div class="glass-card p-4 space-y-3" v-if="selectedUnidad">
+      <!-- Fechas Airbnb (obligatorias) -->
+      <div v-if="esAirbnb && selectedUnidad" class="glass-card p-4 space-y-3 border border-amber-500/30">
+        <label class="text-xs font-semibold text-amber-400 uppercase tracking-wider flex items-center gap-2"><Calendar class="w-4 h-4" /> Fechas de Estadía (Obligatorias)</label>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-[10px] text-white/40 uppercase">Check-in</label>
+            <input v-model="fechaInicio" type="date" class="input-field mt-1" :class="!fechaInicio ? 'border-amber-500/50' : ''" />
+          </div>
+          <div>
+            <label class="text-[10px] text-white/40 uppercase">Check-out</label>
+            <input v-model="fechaSalida" type="date" class="input-field mt-1" :class="!fechaSalida ? 'border-amber-500/50' : ''" />
+          </div>
+        </div>
+        <p v-if="fechaInicio && fechaSalida" class="text-xs text-amber-300/70">
+          Estancia: {{ Math.ceil((new Date(fechaSalida) - new Date(fechaInicio)) / 86400000) }} noches
+        </p>
+      </div>
+
+      <!-- Fecha normal (para otros tipos) -->
+      <div class="glass-card p-4 space-y-3" v-if="!esAirbnb && selectedUnidad">
         <label class="text-xs font-semibold text-white/60 uppercase tracking-wider flex items-center gap-2"><Calendar class="w-4 h-4" />Fecha de Expiración</label>
         <div class="grid grid-cols-2 gap-3">
           <input v-model="fechaExpiracion" type="date" class="input-field" />
@@ -270,13 +322,23 @@ function resetFormulario() {
           </div>
           <div>
             <label class="text-[10px] text-white/40 uppercase tracking-wider">Tipo de Acceso</label>
-            <div class="flex gap-2 mt-1">
+            <div class="flex gap-2 mt-1 flex-wrap">
               <button v-for="tipo in tiposVisitante" :key="tipo.id" @click="tipoVisitante = tipo.id" class="py-2 px-3 rounded-lg text-xs font-medium transition-all" :class="tipoVisitante === tipo.id ? 'bg-titan-500 text-white' : 'bg-white/5 text-white/50'">
                 {{ tipo.icon }} {{ tipo.label }}
               </button>
             </div>
           </div>
-          <div class="grid grid-cols-2 gap-3">
+          <div v-if="esAirbnb" class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-[10px] text-amber-400 uppercase tracking-wider">Check-in</label>
+              <input v-model="fechaInicio" type="date" class="w-full bg-white/5 border border-amber-500/30 rounded-lg px-3 py-2 text-white text-sm focus:border-amber-400 focus:outline-none mt-1" />
+            </div>
+            <div>
+              <label class="text-[10px] text-amber-400 uppercase tracking-wider">Check-out</label>
+              <input v-model="fechaSalida" type="date" class="w-full bg-white/5 border border-amber-500/30 rounded-lg px-3 py-2 text-white text-sm focus:border-amber-400 focus:outline-none mt-1" />
+            </div>
+          </div>
+          <div v-else class="grid grid-cols-2 gap-3">
             <div>
               <label class="text-[10px] text-white/40 uppercase tracking-wider">Fecha Exp.</label>
               <input v-model="fechaExpiracion" type="date" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-titan-500 focus:outline-none mt-1" />
@@ -302,24 +364,95 @@ function resetFormulario() {
       </div>
     </div>
 
-    <!-- PASO 3: QR Generado -->
+    <!-- PASO 3: GAFETE VISUAL -->
     <div v-if="paso === 3" class="space-y-6">
-      <div class="glass-card p-6 flex flex-col items-center text-center">
-        <div class="w-56 h-56 bg-white rounded-2xl p-2 mb-4 flex items-center justify-center">
-          <img v-if="qrImageSrc" :src="qrImageSrc" alt="QR Code" class="w-full h-full" />
+      <!-- Gafete / Badge -->
+      <div ref="gafeteRef" class="relative overflow-hidden rounded-3xl border border-white/10 shadow-2xl">
+        <!-- Header gradient -->
+        <div class="bg-gradient-to-br from-titan-600 via-titan-700 to-purple-900 px-6 py-5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
+                <span class="text-lg font-bold text-white">T</span>
+              </div>
+              <div>
+                <p class="text-sm font-bold text-white tracking-wide">TITAN COLOSO</p>
+                <p class="text-[10px] text-white/60 uppercase tracking-widest">Acceso Autorizado</p>
+              </div>
+            </div>
+            <div class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
+              :class="esAirbnb ? 'bg-amber-500/30 text-amber-200 border border-amber-400/30' : 'bg-emerald-500/30 text-emerald-200 border border-emerald-400/30'">
+              {{ tipoVisitante === 'Airbnb' ? '🏖️ Airbnb' : tiposVisitante.find(t => t.id === tipoVisitante)?.icon + ' ' + tipoVisitante }}
+            </div>
+          </div>
         </div>
-        <p class="text-lg font-bold mt-2">{{ qrCodigo }}</p>
-        <p class="text-sm text-white/40 mt-1">{{ nombreVisitante }} - {{ tipoVisitante }}</p>
-        <p class="text-xs text-white/30 mt-1">{{ condominioSeleccionado?.nombre }} - {{ unidadSeleccionada?.codigo_unidad || unidadSeleccionada?.numero }}</p>
-        <p class="text-xs text-white/30">Expira: {{ fechaExpiracion }} a las {{ horaExpiracion }}</p>
-        <div class="flex gap-3 mt-6 w-full">
-          <button @click="copiarCodigo" class="btn-secondary flex-1 flex items-center justify-center gap-2">
-            <component :is="copiado ? CheckCircle2 : Copy" class="w-4 h-4" />{{ copiado ? "Copiado!" : "Copiar" }}
-          </button>
-          <button @click="compartirWhatsApp" class="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium bg-emerald-600 hover:bg-emerald-500 text-white transition-all">
-            <Share2 class="w-4 h-4" />WhatsApp
-          </button>
+
+        <!-- Body -->
+        <div class="bg-gradient-to-b from-gray-900 to-gray-950 px-6 py-5">
+          <!-- Visitor Info -->
+          <div class="flex items-center gap-4 mb-5">
+            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-titan-500/30 to-purple-500/30 flex items-center justify-center text-2xl">
+              {{ tiposVisitante.find(t => t.id === tipoVisitante)?.icon || '👤' }}
+            </div>
+            <div class="flex-1">
+              <p class="text-lg font-bold text-white">{{ nombreVisitante }}</p>
+              <p class="text-xs text-white/40">{{ tipoDocumento === 'cedula' ? 'Cédula' : 'Pasaporte' }}: {{ documentoId || 'N/A' }}</p>
+            </div>
+          </div>
+
+          <!-- Property Info Grid -->
+          <div class="grid grid-cols-2 gap-3 mb-5">
+            <div class="bg-white/5 rounded-xl p-3">
+              <p class="text-[10px] text-white/30 uppercase tracking-wider mb-1">Condominio</p>
+              <p class="text-sm font-semibold text-white">{{ condominioSeleccionado?.nombre }}</p>
+            </div>
+            <div class="bg-white/5 rounded-xl p-3">
+              <p class="text-[10px] text-white/30 uppercase tracking-wider mb-1">Unidad</p>
+              <p class="text-sm font-semibold text-titan-400">{{ unidadSeleccionada?.codigo_unidad || unidadSeleccionada?.numero }}</p>
+            </div>
+          </div>
+
+          <!-- Dates (Airbnb) -->
+          <div v-if="esAirbnb" class="flex gap-3 mb-5">
+            <div class="flex-1 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
+              <p class="text-[10px] text-amber-400 uppercase tracking-wider mb-1">📅 Check-in</p>
+              <p class="text-sm font-semibold text-white">{{ formatFecha(fechaInicio) }}</p>
+            </div>
+            <div class="flex-1 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
+              <p class="text-[10px] text-amber-400 uppercase tracking-wider mb-1">📅 Check-out</p>
+              <p class="text-sm font-semibold text-white">{{ formatFecha(fechaSalida) }}</p>
+            </div>
+          </div>
+          <!-- Date (Normal) -->
+          <div v-else class="bg-white/5 rounded-xl p-3 mb-5">
+            <p class="text-[10px] text-white/30 uppercase tracking-wider mb-1">Válido hasta</p>
+            <p class="text-sm font-semibold text-white">{{ formatFecha(fechaExpiracion) }} · {{ horaExpiracion }}</p>
+          </div>
+
+          <!-- QR Code -->
+          <div class="flex flex-col items-center">
+            <div class="w-48 h-48 bg-white rounded-2xl p-2 shadow-xl shadow-black/30">
+              <img v-if="qrImageSrc" :src="qrImageSrc" alt="QR Code" class="w-full h-full" />
+            </div>
+            <p class="text-xs text-white/30 mt-3 font-mono tracking-wider">{{ qrCodigo }}</p>
+          </div>
         </div>
+
+        <!-- Footer -->
+        <div class="bg-gray-950 px-6 py-3 flex items-center justify-between border-t border-white/5">
+          <p class="text-[9px] text-white/20 uppercase tracking-widest">Muestra este gafete al vigilante</p>
+          <p class="text-[9px] text-white/20">v2.5</p>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex gap-3">
+        <button @click="copiarCodigo" class="btn-secondary flex-1 flex items-center justify-center gap-2">
+          <component :is="copiado ? CheckCircle2 : Copy" class="w-4 h-4" />{{ copiado ? "Copiado!" : "Copiar" }}
+        </button>
+        <button @click="compartirWhatsApp" class="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium bg-emerald-600 hover:bg-emerald-500 text-white transition-all">
+          <Share2 class="w-4 h-4" />WhatsApp
+        </button>
       </div>
       <button @click="resetFormulario" class="w-full btn-secondary text-center">Generar otro acceso</button>
     </div>

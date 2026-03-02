@@ -25,13 +25,13 @@ const router = createRouter({
             path: '/dashboard',
             name: 'dashboard',
             component: Dashboard,
-            meta: { requiresAuth: true, roles: ['propietario', 'inquilino', 'admin'] }
+            meta: { requiresAuth: true, roles: ['propietario', 'inquilino', 'admin', 'property_manager'] }
         },
         {
             path: '/generar-qr',
             name: 'generar-qr',
             component: GenerarQR,
-            meta: { requiresAuth: true, roles: ['propietario', 'inquilino', 'admin'] }
+            meta: { requiresAuth: true, roles: ['propietario', 'inquilino', 'admin', 'property_manager'] }
         },
         {
             path: '/escaner',
@@ -65,6 +65,9 @@ router.beforeEach((to, from, next) => {
         }
         if (user.role === 'admin') {
             return next({ name: 'admin' })
+        }
+        if (user.role === 'property_manager') {
+            return next({ name: 'dashboard' })
         }
         return next({ name: 'dashboard' })
     }

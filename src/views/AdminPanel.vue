@@ -327,6 +327,7 @@
               class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2.5 text-white text-sm focus:border-cyan-500 focus:outline-none">
               <option value="">Seleccionar...</option>
               <option value="propietario">Propietario</option>
+              <option value="property_manager">Property Manager</option>
               <option value="inquilino">Inquilino</option>
               <option value="vigilante">Vigilante</option>
             </select>
@@ -339,6 +340,11 @@
           <div>
             <label class="text-xs text-gray-400 uppercase tracking-wider mb-1 block">Telefono</label>
             <input v-model="newUser.telefono" placeholder="+1 (809) 555-0000"
+              class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2.5 text-white text-sm focus:border-cyan-500 focus:outline-none" />
+          </div>
+          <div class="col-span-2">
+            <label class="text-xs text-gray-400 uppercase tracking-wider mb-1 block">Password / PIN de acceso</label>
+            <input v-model="newUser.password" type="text" placeholder="Min. 6 caracteres"
               class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2.5 text-white text-sm focus:border-cyan-500 focus:outline-none" />
           </div>
         </div>
@@ -718,7 +724,7 @@ async function eliminarUnidad(id) { await deleteUnidad(id); await refreshData() 
 // ---- Usuarios (Módulo 2) ----
 const usuarios = ref([])
 const userRoleFilter = ref('')
-const newUser = ref({ nombre: '', apellido: '', cedula: '', email: '', telefono: '', rol: '' })
+const newUser = ref({ nombre: '', apellido: '', cedula: '', email: '', telefono: '', rol: '', password: '' })
 const userError = ref('')
 const userSuccess = ref('')
 const cedulaStatus = ref('') // 'valid', 'invalid', ''
@@ -744,7 +750,7 @@ async function crearUsuario() {
   try {
     await addUsuario(newUser.value)
     userSuccess.value = 'Usuario registrado exitosamente'
-    newUser.value = { nombre: '', apellido: '', cedula: '', email: '', telefono: '', rol: '' }
+    newUser.value = { nombre: '', apellido: '', cedula: '', email: '', telefono: '', rol: '', password: '' }
     cedulaStatus.value = ''; cedulaMsg.value = ''
     await refreshData()
   } catch (e) { userError.value = e.message }

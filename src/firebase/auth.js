@@ -47,6 +47,14 @@ const mockUsers = {
         displayName: 'Laura Martinez',
         role: 'inquilino',
         unidades: ['ws-3b1']
+    },
+    'manager@titan.com': {
+        uid: 'pm-01',
+        email: 'manager@titan.com',
+        password: '123456',
+        displayName: 'Carlos Reyes',
+        role: 'property_manager',
+        unidades: ['ws-g44', 'pb-c4', 'sd-102']
     }
 }
 

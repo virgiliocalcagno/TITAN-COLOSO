@@ -7,7 +7,7 @@ import { LayoutDashboard, QrCode, ScanLine, Bell, LogOut, ClipboardList, Setting
 
 const route = useRoute()
 const router = useRouter()
-const { user, isAuthenticated, userRole, userName, isPropietario, isVigilante, isAdmin, logout } = useAuth()
+const { user, isAuthenticated, userRole, userName, isPropietario, isVigilante, isAdmin, isPropertyManager, logout } = useAuth()
 const { propiedades, propiedadActiva, requireSelection, propiedadLabel, tieneMultiples, tieneSoloUna, rolActivo, cargarPropiedades, seleccionarPropiedad, limpiarSeleccion } = usePropertySelector()
 
 const currentPath = computed(() => route.path)
@@ -45,6 +45,12 @@ const navItems = computed(() => {
     { name: 'Escáner', icon: ScanLine, path: '/escaner' },
   ]
 
+  // Property Manager: Panel + QR (como propietario)
+  if (baseRole === 'property_manager') return [
+    { name: 'Panel', icon: LayoutDashboard, path: '/dashboard' },
+    { name: 'Generar QR', icon: QrCode, path: '/generar-qr' },
+  ]
+
   // Para propietarios, inquilinos, y otros: depende del rol activo en la asignación
   const items = [
     { name: 'Panel', icon: LayoutDashboard, path: '/dashboard' },
@@ -66,6 +72,7 @@ const navItems = computed(() => {
 const roleLabel = computed(() => {
   if (isAdmin.value) return 'Administrador'
   if (isVigilante.value) return 'Garita'
+  if (isPropertyManager.value) return 'Property Manager'
   if (rolActivo.value) return rolActivo.value
   const labels = { propietario: 'Propietario', inquilino: 'Inquilino' }
   return labels[userRole.value] || 'Usuario'

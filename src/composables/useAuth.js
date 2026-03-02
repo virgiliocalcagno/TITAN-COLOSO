@@ -33,6 +33,7 @@ export function useAuth() {
     const isPropietario = computed(() => userRole.value === 'propietario')
     const isVigilante = computed(() => userRole.value === 'vigilante')
     const isAdmin = computed(() => userRole.value === 'admin')
+    const isPropertyManager = computed(() => userRole.value === 'property_manager')
 
     async function login(email, password) {
         error.value = null
@@ -65,6 +66,7 @@ export function useAuth() {
         isPropietario,
         isVigilante,
         isAdmin,
+        isPropertyManager,
         login,
         logout
     }
