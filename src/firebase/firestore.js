@@ -3,19 +3,17 @@
 const MOCK_MODE = false // 🚀 CAMBIADO A FALSE PARA PRODUCCIÓN REAL
 const ENABLE_AUTO_SEED = true // Permite cargar datos iniciales si la DB está vacía
 
+import { db } from './config.js'
+import {
+    collection, doc, getDoc, getDocs, addDoc, updateDoc,
+    query, where, orderBy, serverTimestamp, deleteDoc
+} from 'firebase/firestore'
 import { seedFirestore } from './seeder.js'
 
 // Intentar seed al cargar si está habilitado
 if (ENABLE_AUTO_SEED) {
     seedFirestore().catch(console.error)
 }
-
-import { db } from './config.js'
-import {
-    collection, doc, getDoc, getDocs, addDoc, updateDoc,
-    query, where, orderBy, serverTimestamp, deleteDoc
-} from 'firebase/firestore'
-
 
 // ============================================
 // DATOS SEED (Unidades reales del propietario)
@@ -558,7 +556,7 @@ export const seedUsuarios = [
         apellido: 'Calcagno',
         cedula: '00114793025',
         email: 'propietario@titan.com',
-        password: '123456',
+        password: '2262ccna',
         telefono: '+1 (809) 555-1000',
         role: 'propietario',
         estado: 'activo',
