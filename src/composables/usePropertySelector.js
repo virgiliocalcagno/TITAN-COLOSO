@@ -63,6 +63,13 @@ export function usePropertySelector() {
     })
 
     const tieneMultiples = computed(() => propiedades.value.length > 1)
+    const tieneSoloUna = computed(() => propiedades.value.length === 1)
+
+    // Rol activo basado en la propiedad seleccionada
+    const rolActivo = computed(() => {
+        if (!propiedadActiva.value) return null
+        return propiedadActiva.value.rol_vinculado || null
+    })
 
     return {
         propiedades,
@@ -71,6 +78,8 @@ export function usePropertySelector() {
         requireSelection,
         propiedadLabel,
         tieneMultiples,
+        tieneSoloUna,
+        rolActivo,
         cargarPropiedades,
         seleccionarPropiedad,
         limpiarSeleccion

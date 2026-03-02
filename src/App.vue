@@ -1,22 +1,21 @@
 <script setup>
-import { computed, watch } from 'vue'
+import { computed, watch, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from './composables/useAuth.js'
 import { usePropertySelector } from './composables/usePropertySelector.js'
-import { LayoutDashboard, QrCode, ScanLine, Bell, User, LogOut, ClipboardList, Users, Settings, Building2, ChevronDown } from 'lucide-vue-next'
+import { LayoutDashboard, QrCode, ScanLine, Bell, LogOut, ClipboardList, Settings, Building2, ChevronDown, ArrowLeftRight } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
 const { user, isAuthenticated, userRole, userName, isPropietario, isVigilante, isAdmin, logout } = useAuth()
-const { propiedades, propiedadActiva, requireSelection, propiedadLabel, tieneMultiples, cargarPropiedades, seleccionarPropiedad, limpiarSeleccion } = usePropertySelector()
+const { propiedades, propiedadActiva, requireSelection, propiedadLabel, tieneMultiples, tieneSoloUna, rolActivo, cargarPropiedades, seleccionarPropiedad, limpiarSeleccion } = usePropertySelector()
 
 const currentPath = computed(() => route.path)
 const isLoginPage = computed(() => route.name === 'login')
-const isInquilino = computed(() => userRole.value === 'inquilino')
-const showPropertySelector = computed(() => requireSelection.value && !isAdmin.value && !isVigilante.value)
 const showPropertySwitcher = ref(false)
 
-import { ref } from 'vue'
+// Smart property selector: show overlay only if multi-unit AND non-vigilante AND non-admin
+const showPropertySelector = computed(() => requireSelection.value && !isAdmin.value && !isVigilante.value)
 
 // Cargar propiedades cuando el usuario cambia
 watch(() => user.value, async (newUser) => {
@@ -27,37 +26,54 @@ watch(() => user.value, async (newUser) => {
   }
 }, { immediate: true })
 
-const propietarioNav = [
-  { name: 'Panel', icon: LayoutDashboard, path: '/dashboard' },
-  { name: 'Generar QR', icon: QrCode, path: '/generar-qr' },
-]
-
-const inquilinoNav = [
-  { name: 'Panel', icon: LayoutDashboard, path: '/dashboard' },
-  { name: 'Generar QR', icon: QrCode, path: '/generar-qr' },
-]
-
-const vigilanteNav = [
-  { name: 'Escaner', icon: ScanLine, path: '/escaner' },
-  { name: 'Registros', icon: ClipboardList, path: '/escaner' },
-]
-
-const adminNav = [
-  { name: 'Panel', icon: LayoutDashboard, path: '/dashboard' },
-  { name: 'Admin', icon: Settings, path: '/admin' },
-  { name: 'Escaner', icon: ScanLine, path: '/escaner' },
-]
-
+// ---- Navigation por Rol ----
+// El nav se filtra por: base role (user.role) + rol activo de la asignación seleccionada
 const navItems = computed(() => {
-  if (isAdmin.value) return adminNav
-  if (isVigilante.value) return vigilanteNav
-  if (isInquilino.value) return inquilinoNav
-  return propietarioNav
+  const baseRole = userRole.value
+  const activeRole = rolActivo.value
+
+  // Admin siempre tiene acceso completo
+  if (baseRole === 'admin') return [
+    { name: 'Panel', icon: LayoutDashboard, path: '/dashboard' },
+    { name: 'Admin', icon: Settings, path: '/admin' },
+    { name: 'QR', icon: QrCode, path: '/generar-qr' },
+    { name: 'Escáner', icon: ScanLine, path: '/escaner' },
+  ]
+
+  // Vigilante solo ve escáner
+  if (baseRole === 'vigilante') return [
+    { name: 'Escáner', icon: ScanLine, path: '/escaner' },
+  ]
+
+  // Para propietarios, inquilinos, y otros: depende del rol activo en la asignación
+  const items = [
+    { name: 'Panel', icon: LayoutDashboard, path: '/dashboard' },
+  ]
+
+  // Propietario y Property Manager pueden generar QR
+  if (['Propietario', 'Property Manager', 'Inquilino'].includes(activeRole) || baseRole === 'propietario') {
+    items.push({ name: 'Generar QR', icon: QrCode, path: '/generar-qr' })
+  }
+
+  // Huésped: solo ve panel (sin generar QR propio por defecto, el QR se lo da el propietario)
+  // Familiar: solo ve panel
+  // Nada adicional necesario, ya tienen el Panel
+
+  return items
 })
 
+// Label dinámico: muestra el rol activo de la asignación, no solo el base role
 const roleLabel = computed(() => {
-  const labels = { propietario: 'Propietario', inquilino: 'Inquilino', vigilante: 'Garita', admin: 'Administrador' }
+  if (isAdmin.value) return 'Administrador'
+  if (isVigilante.value) return 'Garita'
+  if (rolActivo.value) return rolActivo.value
+  const labels = { propietario: 'Propietario', inquilino: 'Inquilino' }
   return labels[userRole.value] || 'Usuario'
+})
+
+// Mostrar switcher para cualquier usuario con múltiples unidades (excepto vigilante)
+const canSwitchProperty = computed(() => {
+  return tieneMultiples.value && !isVigilante.value
 })
 
 async function handleLogout() {
@@ -69,6 +85,13 @@ async function handleLogout() {
 function handleSelectProperty(prop) {
   seleccionarPropiedad(prop)
   showPropertySwitcher.value = false
+}
+
+function cambiarPropiedad() {
+  // Forzar el selector de nuevo
+  limpiarSeleccion()
+  // Re-cargar propiedades para que se muestre el overlay
+  if (user.value?.uid) cargarPropiedades(user.value.uid)
 }
 </script>
 
@@ -88,14 +111,20 @@ function handleSelectProperty(prop) {
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <!-- Property Indicator -->
-        <button v-if="propiedadLabel && tieneMultiples && !isAdmin && !isVigilante"
+        <!-- Property Indicator + Switcher -->
+        <button v-if="propiedadLabel && canSwitchProperty"
           @click="showPropertySwitcher = !showPropertySwitcher"
           class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-titan-500/15 border border-titan-500/25 text-titan-300 text-[11px] font-medium hover:bg-titan-500/25 transition-all">
           <Building2 class="w-3.5 h-3.5" />
           <span class="max-w-[100px] truncate">{{ propiedadLabel }}</span>
           <ChevronDown class="w-3 h-3" />
         </button>
+        <!-- Single property indicator (no dropdown) -->
+        <div v-else-if="propiedadLabel && tieneSoloUna"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 text-white/50 text-[11px]">
+          <Building2 class="w-3.5 h-3.5" />
+          <span class="max-w-[100px] truncate">{{ propiedadLabel }}</span>
+        </div>
         <button class="relative p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
           <Bell class="w-5 h-5 text-white/60" />
           <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
@@ -108,7 +137,7 @@ function handleSelectProperty(prop) {
 
     <!-- Property Switcher Dropdown -->
     <div v-if="showPropertySwitcher" class="fixed inset-0 z-[60]" @click="showPropertySwitcher = false">
-      <div class="absolute top-16 right-4 w-64 glass-card p-2 space-y-1 shadow-2xl animate-fade-in-up" @click.stop>
+      <div class="absolute top-16 right-4 w-72 glass-card p-2 space-y-1 shadow-2xl animate-fade-in-up" @click.stop>
         <p class="text-[10px] text-white/40 uppercase tracking-wider px-2 pt-1">Cambiar propiedad</p>
         <button v-for="p in propiedades" :key="p.unidad_id" @click="handleSelectProperty(p)"
           class="w-full text-left px-3 py-2.5 rounded-xl transition-all flex items-center gap-3"
@@ -119,20 +148,20 @@ function handleSelectProperty(prop) {
           </div>
           <div class="flex-1 min-w-0">
             <p class="text-sm font-medium truncate" :class="propiedadActiva?.unidad_id === p.unidad_id ? 'text-titan-300' : 'text-white'">{{ p.condominio_nombre }}</p>
-            <p class="text-[10px] text-white/40">{{ p.agrupador_nombre }} · {{ p.unidad_codigo }} · {{ p.rol_vinculado }}</p>
+            <p class="text-[10px] text-white/40">{{ p.agrupador_nombre }} · {{ p.unidad_codigo }} · <span class="text-titan-400">{{ p.rol_vinculado }}</span></p>
           </div>
         </button>
       </div>
     </div>
 
-    <!-- Property Selection Overlay (forced) -->
+    <!-- Property Selection Overlay (forced for multi-unit users) -->
     <div v-if="showPropertySelector" class="fixed inset-0 z-[70] bg-dark-950/95 backdrop-blur-xl flex items-center justify-center p-4">
       <div class="w-full max-w-sm space-y-6 animate-fade-in-up">
         <div class="text-center">
           <div class="mx-auto w-16 h-16 bg-gradient-to-br from-titan-500 to-titan-700 rounded-2xl flex items-center justify-center shadow-2xl shadow-titan-500/30 mb-4">
             <Building2 class="w-8 h-8 text-white" />
           </div>
-          <h2 class="text-xl font-bold text-white">Seleccione su propiedad</h2>
+          <h2 class="text-xl font-bold text-white">¿En qué propiedad desea trabajar?</h2>
           <p class="text-white/40 text-sm mt-1">Tiene {{ propiedades.length }} unidades asignadas</p>
         </div>
         <div class="space-y-2">
