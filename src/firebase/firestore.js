@@ -1,18 +1,27 @@
 // Firestore Service - CRUD para las 4 colecciones principales
 // Funciona con mock data cuando no hay credenciales configuradas
+const MOCK_MODE = false // 🚀 CAMBIADO A FALSE PARA PRODUCCIÓN REAL
+const ENABLE_AUTO_SEED = true // Permite cargar datos iniciales si la DB está vacía
+
+import { seedFirestore } from './seeder.js'
+
+// Intentar seed al cargar si está habilitado
+if (ENABLE_AUTO_SEED) {
+    seedFirestore().catch(console.error)
+}
+
 import { db } from './config.js'
 import {
     collection, doc, getDoc, getDocs, addDoc, updateDoc,
     query, where, orderBy, serverTimestamp, deleteDoc
 } from 'firebase/firestore'
 
-const MOCK_MODE = true // Cambiar a false cuando Firebase esté configurado
 
 // ============================================
 // DATOS SEED (Unidades reales del propietario)
 // ============================================
 
-let seedCondominios = [
+export const seedCondominios = [
     {
         id: 'white-sand',
         nombre: 'White Sand',
@@ -43,7 +52,7 @@ let seedCondominios = [
 ]
 
 // Agrupadores (Edificios/Bloques/Manzanas dentro de cada condominio)
-let seedAgrupadores = [
+export const seedAgrupadores = [
     { id: 'ws-ed1', condominioId: 'white-sand', nombre: 'Edificio 1', orden: 1 },
     { id: 'ws-ed2', condominioId: 'white-sand', nombre: 'Edificio 2', orden: 2 },
     { id: 'ws-ed3', condominioId: 'white-sand', nombre: 'Edificio 3', orden: 3 },
@@ -60,7 +69,7 @@ let seedAgrupadores = [
 ]
 
 // Unidades (ahora con agrupadorId para jerarquía completa)
-let seedUnidades = [
+export const seedUnidades = [
     { id: 'ws-3a1', codigo_unidad: '3A1', condominioId: 'white-sand', condominioNombre: 'White Sand', agrupadorId: 'ws-ed3', agrupadorNombre: 'Edificio 3', propietarioId: 'owner-virgilio', estado: true, piso: 1, letra: 'A' },
     { id: 'ws-3b1', codigo_unidad: '3B1', condominioId: 'white-sand', condominioNombre: 'White Sand', agrupadorId: 'ws-ed3', agrupadorNombre: 'Edificio 3', propietarioId: null, estado: true, piso: 1, letra: 'B' },
     { id: 'ws-3c1', codigo_unidad: '3C1', condominioId: 'white-sand', condominioNombre: 'White Sand', agrupadorId: 'ws-ed3', agrupadorNombre: 'Edificio 3', propietarioId: null, estado: true, piso: 1, letra: 'C' },
@@ -530,7 +539,7 @@ export async function generarUnidadesBatch(config) {
 // USUARIOS (Módulo 2)
 // ============================================
 
-let seedUsuarios = [
+export const seedUsuarios = [
     {
         id: 'admin-01',
         nombre: 'Admin',
@@ -598,7 +607,7 @@ let seedUsuarios = [
 // ASIGNACIONES UNIDADES (Tabla relacional)
 // ============================================
 
-let seedAsignaciones = [
+export const seedAsignaciones = [
     {
         id: 'asig-001',
         usuario_id: 'owner-virgilio',

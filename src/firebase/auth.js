@@ -14,7 +14,7 @@ import { buscarUsuarioPorEmail, getUsuario } from './firestore.js'
 // ============================================
 // MODO MOCK (mientras no hay credenciales)
 // ============================================
-const MOCK_MODE = true // Cambiar a false cuando Firebase esté configurado
+const MOCK_MODE = false // 🚀 CAMBIADO A FALSE PARA PRODUCCIÓN REAL
 
 let currentMockUser = null
 
