@@ -15,50 +15,9 @@ import { db } from './config.js'
 // ============================================
 const MOCK_MODE = true // Cambiar a false cuando Firebase esté configurado
 
-const mockUsers = {
-    'propietario@titan.com': {
-        uid: 'owner-virgilio',
-        email: 'propietario@titan.com',
-        password: '123456',
-        displayName: 'Virgilio Calcagno',
-        role: 'propietario',
-        unidades: ['ws-g44', 'sd-102', 'pb-c4']
-    },
-    'vigilante@titan.com': {
-        uid: 'guard-01',
-        email: 'vigilante@titan.com',
-        password: '123456',
-        displayName: 'Juan Seguridad',
-        role: 'vigilante',
-        condominioAsignado: 'white-sand'
-    },
-    'admin@titan.com': {
-        uid: 'admin-01',
-        email: 'admin@titan.com',
-        password: '123456',
-        displayName: 'Admin TITAN',
-        role: 'admin',
-        unidades: []
-    },
-    'inquilino@titan.com': {
-        uid: 'tenant-01',
-        email: 'inquilino@titan.com',
-        password: '123456',
-        displayName: 'Laura Martinez',
-        role: 'inquilino',
-        unidades: ['ws-3b1']
-    },
-    'manager@titan.com': {
-        uid: 'pm-01',
-        email: 'manager@titan.com',
-        password: '123456',
-        displayName: 'Carlos Reyes',
-        role: 'property_manager',
-        unidades: ['ws-g44', 'pb-c4', 'sd-102']
-    }
-}
-
 let currentMockUser = null
+
+import { buscarUsuarioPorEmail } from './firestore.js'
 
 // ============================================
 // FUNCIONES DE AUTH
@@ -66,15 +25,16 @@ let currentMockUser = null
 
 export async function loginWithEmail(email, password) {
     if (MOCK_MODE) {
-        const user = mockUsers[email]
+        // En lugar de mockUsers harcodeado, usamos Firestore (vía helper que busca en seedUsuarios/Firestore)
+        const user = await buscarUsuarioPorEmail(email)
         if (!user || user.password !== password) {
             throw new Error('Credenciales incorrectas')
         }
-        currentMockUser = { ...user }
-        delete currentMockUser.password
+        const profile = { ...user }
+        delete profile.password
         // Persist in sessionStorage
-        sessionStorage.setItem('titan_user', JSON.stringify(currentMockUser))
-        return currentMockUser
+        sessionStorage.setItem('titan_user', JSON.stringify(profile))
+        return profile
     }
 
     // Firebase mode

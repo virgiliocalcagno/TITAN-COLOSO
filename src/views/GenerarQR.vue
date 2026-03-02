@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useAuth } from '../composables/useAuth.js'
 import { useFirestore } from '../composables/useFirestore.js'
 import QRCode from 'qrcode'
-import { ChevronDown, Calendar, Clock, User, Building2, Copy, Share2, CheckCircle2, Camera, FileText, Edit3, ArrowLeft, ArrowRight, X, ImageIcon, Download } from 'lucide-vue-next'
+import { ChevronDown, Calendar, Clock, User, Building2, Copy, Share2, CheckCircle2, Camera, FileText, Edit3, ArrowLeft, ArrowRight, X, ImageIcon, Download, Truck, ArrowUpRight } from 'lucide-vue-next'
 
 const { userId } = useAuth()
 const { getCondominios, getUnidadesByPropietario, createInvitacion } = useFirestore()
@@ -40,9 +40,17 @@ const tiposVisitante = [
   { id: 'Familiar', label: 'Familia', icon: '👪' },
   { id: 'Delivery', label: 'Delivery', icon: '🚚' },
   { id: 'Airbnb', label: 'Airbnb', icon: '🏖️' },
+  { id: 'Mudanza', label: 'Mudanza', icon: '📦' },
+  { id: 'Servicio', label: 'Servicio', icon: '🛠️' },
 ]
 
+const vehiculoPlaca = ref('')
+const vehiculoTipo = ref('')
+const vehiculoMarca = ref('')
+const sentidoMovimiento = ref('Entrada') // Entrada | Salida
+
 const esAirbnb = computed(() => tipoVisitante.value === 'Airbnb')
+const esLogistica = computed(() => ['Mudanza', 'Servicio'].includes(tipoVisitante.value))
 
 onMounted(async () => {
   condominios.value = await getCondominios() || []
@@ -64,6 +72,7 @@ const unidadSeleccionada = computed(() => unidades.value.find(u => u.id === sele
 const formularioValido = computed(() => {
   if (!selectedCondominio.value || !selectedUnidad.value || !nombreVisitante.value.trim() || !fechaExpiracion.value) return false
   if (esAirbnb.value && (!fechaInicio.value || !fechaSalida.value)) return false
+  if (esLogistica.value && (!vehiculoPlaca.value || !vehiculoTipo.value)) return false
   return true
 })
 
@@ -129,6 +138,12 @@ async function generarQR() {
         : fechaExpiracion.value + 'T' + horaExpiracion.value + ':00',
       fechaInicio: esAirbnb.value ? fechaInicio.value : null,
       fechaSalida: esAirbnb.value ? fechaSalida.value : null,
+      logistica: esLogistica.value ? {
+        placa: vehiculoPlaca.value,
+        tipo: vehiculoTipo.value,
+        marca: vehiculoMarca.value,
+        sentido: sentidoMovimiento.value
+      } : null,
       fotoDocumento: fotoDocumento.value
     })
     qrCodigo.value = inv.idQR
@@ -154,6 +169,8 @@ function compartirWhatsApp() {
   if (esAirbnb.value) {
     texto += `📅 Check-in: ${fechaInicio.value}%0A`
     texto += `📅 Check-out: ${fechaSalida.value}%0A`
+  } else if (esLogistica.value) {
+    texto += `🚚 Placa: ${vehiculoPlaca.value} (${sentidoMovimiento.value})%0A`
   } else {
     texto += `⏰ Expira: ${fechaExpiracion.value} ${horaExpiracion.value}%0A`
   }
@@ -179,6 +196,10 @@ function resetFormulario() {
   fechaExpiracion.value = ''
   fechaInicio.value = ''
   fechaSalida.value = ''
+  vehiculoPlaca.value = ''
+  vehiculoTipo.value = ''
+  vehiculoMarca.value = ''
+  sentidoMovimiento.value = 'Entrada'
 }
 </script>
 
@@ -276,8 +297,45 @@ function resetFormulario() {
         </p>
       </div>
 
+      <!-- Logística Vehicular (Mudanza/Servicio) -->
+      <div v-if="esLogistica && selectedUnidad" class="glass-card p-4 space-y-4 border border-blue-500/30">
+        <label class="text-xs font-semibold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+          <Truck class="w-4 h-4" /> Datos del Vehículo (Logística)
+        </label>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-[10px] text-white/40 uppercase">Placa / Matrícula</label>
+            <input v-model="vehiculoPlaca" type="text" placeholder="L123456" class="input-field mt-1" :class="!vehiculoPlaca ? 'border-blue-500/50' : ''" />
+          </div>
+          <div>
+            <label class="text-[10px] text-white/40 uppercase">Tipo de Vehículo</label>
+            <select v-model="vehiculoTipo" class="input-field mt-1" :class="!vehiculoTipo ? 'border-blue-500/50' : ''">
+              <option value="">Seleccione...</option>
+              <option value="Camion">Camión</option>
+              <option value="Furgoneta">Furgoneta</option>
+              <option value="Camioneta">Camioneta</option>
+              <option value="Grua">Grúa</option>
+              <option value="Particular">Particular</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-[10px] text-white/40 uppercase">Marca / Empresa</label>
+            <input v-model="vehiculoMarca" type="text" placeholder="Ej. Hino / PedidosYa" class="input-field mt-1" />
+          </div>
+          <div>
+            <label class="text-[10px] text-white/40 uppercase">Sentido</label>
+            <div class="flex gap-1 mt-1">
+              <button @click="sentidoMovimiento = 'Entrada'" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all" :class="sentidoMovimiento === 'Entrada' ? 'bg-blue-500 text-white' : 'bg-white/5 text-white/40'">ENTRADA</button>
+              <button @click="sentidoMovimiento = 'Salida'" class="flex-1 py-2 rounded-lg text-xs font-bold transition-all" :class="sentidoMovimiento === 'Salida' ? 'bg-blue-500 text-white' : 'bg-white/5 text-white/40'">SALIDA</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Fecha normal (para otros tipos) -->
-      <div class="glass-card p-4 space-y-3" v-if="!esAirbnb && selectedUnidad">
+      <div class="glass-card p-4 space-y-3" v-if="!esAirbnb && !esLogistica && selectedUnidad">
         <label class="text-xs font-semibold text-white/60 uppercase tracking-wider flex items-center gap-2"><Calendar class="w-4 h-4" />Fecha de Expiración</label>
         <div class="grid grid-cols-2 gap-3">
           <input v-model="fechaExpiracion" type="date" class="input-field" />
@@ -320,12 +378,12 @@ function resetFormulario() {
               <input v-model="documentoId" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-titan-500 focus:outline-none mt-1" />
             </div>
           </div>
-          <div>
-            <label class="text-[10px] text-white/40 uppercase tracking-wider">Tipo de Acceso</label>
-            <div class="flex gap-2 mt-1 flex-wrap">
-              <button v-for="tipo in tiposVisitante" :key="tipo.id" @click="tipoVisitante = tipo.id" class="py-2 px-3 rounded-lg text-xs font-medium transition-all" :class="tipoVisitante === tipo.id ? 'bg-titan-500 text-white' : 'bg-white/5 text-white/50'">
-                {{ tipo.icon }} {{ tipo.label }}
-              </button>
+          <div v-if="esLogistica" class="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 space-y-2">
+            <label class="text-[10px] text-blue-400 uppercase tracking-wider block">DATOS DE LOGÍSTICA</label>
+            <div class="grid grid-cols-2 gap-x-4 gap-y-1">
+              <p class="text-xs text-white/60">Vehículo: <span class="text-white">{{ vehiculoTipo }} - {{ vehiculoMarca || 'N/A' }}</span></p>
+              <p class="text-xs text-white/60">Placa: <span class="text-white font-mono">{{ vehiculoPlaca }}</span></p>
+              <p class="text-xs text-white/60">Sentido: <span class="text-blue-300 font-bold">{{ sentidoMovimiento }}</span></p>
             </div>
           </div>
           <div v-if="esAirbnb" class="grid grid-cols-2 gap-3">
@@ -338,7 +396,7 @@ function resetFormulario() {
               <input v-model="fechaSalida" type="date" class="w-full bg-white/5 border border-amber-500/30 rounded-lg px-3 py-2 text-white text-sm focus:border-amber-400 focus:outline-none mt-1" />
             </div>
           </div>
-          <div v-else class="grid grid-cols-2 gap-3">
+          <div v-if="!esAirbnb && !esLogistica" class="grid grid-cols-2 gap-3">
             <div>
               <label class="text-[10px] text-white/40 uppercase tracking-wider">Fecha Exp.</label>
               <input v-model="fechaExpiracion" type="date" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-titan-500 focus:outline-none mt-1" />
@@ -366,9 +424,7 @@ function resetFormulario() {
 
     <!-- PASO 3: GAFETE VISUAL -->
     <div v-if="paso === 3" class="space-y-6">
-      <!-- Gafete / Badge -->
       <div ref="gafeteRef" class="relative overflow-hidden rounded-3xl border border-white/10 shadow-2xl">
-        <!-- Header gradient -->
         <div class="bg-gradient-to-br from-titan-600 via-titan-700 to-purple-900 px-6 py-5">
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
@@ -381,15 +437,29 @@ function resetFormulario() {
               </div>
             </div>
             <div class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
-              :class="esAirbnb ? 'bg-amber-500/30 text-amber-200 border border-amber-400/30' : 'bg-emerald-500/30 text-emerald-200 border border-emerald-400/30'">
-              {{ tipoVisitante === 'Airbnb' ? '🏖️ Airbnb' : tiposVisitante.find(t => t.id === tipoVisitante)?.icon + ' ' + tipoVisitante }}
+              :class="esAirbnb ? 'bg-amber-500/30 text-amber-200 border border-amber-400/30' : esLogistica ? 'bg-blue-500/30 text-blue-200 border border-blue-400/30' : 'bg-emerald-500/30 text-emerald-200 border border-emerald-400/30'">
+              {{ tipoVisitante === 'Airbnb' ? '🏖️ Airbnb' : (tiposVisitante.find(t => t.id === tipoVisitante)?.icon + ' ' + (tiposVisitante.find(t => t.id === tipoVisitante)?.label || tipoVisitante)) }}
             </div>
           </div>
         </div>
 
-        <!-- Body -->
         <div class="bg-gradient-to-b from-gray-900 to-gray-950 px-6 py-5">
-          <!-- Visitor Info -->
+          <!-- Logistics Badge -->
+          <div v-if="esLogistica" class="mb-5 bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4 flex items-center justify-between">
+            <div>
+              <p class="text-[10px] text-blue-400 uppercase tracking-widest font-bold mb-1">Logística de Camión</p>
+              <p class="text-sm font-bold text-white">{{ vehiculoTipo }} <span class="font-normal text-white/40">({{ vehiculoMarca || 'Empresa x' }})</span></p>
+              <p class="text-lg font-mono text-blue-300 mt-1">{{ vehiculoPlaca }}</p>
+            </div>
+            <div class="flex flex-col items-center">
+              <div class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white mb-1 shadow-lg shadow-blue-500/40">
+                <ArrowUpRight v-if="sentidoMovimiento === 'Entrada'" class="w-6 h-6" />
+                <ArrowRight v-else class="w-6 h-6 rotate-90" />
+              </div>
+              <p class="text-[10px] font-bold text-blue-400">{{ sentidoMovimiento }}</p>
+            </div>
+          </div>
+
           <div class="flex items-center gap-4 mb-5">
             <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-titan-500/30 to-purple-500/30 flex items-center justify-center text-2xl">
               {{ tiposVisitante.find(t => t.id === tipoVisitante)?.icon || '👤' }}
@@ -400,7 +470,6 @@ function resetFormulario() {
             </div>
           </div>
 
-          <!-- Property Info Grid -->
           <div class="grid grid-cols-2 gap-3 mb-5">
             <div class="bg-white/5 rounded-xl p-3">
               <p class="text-[10px] text-white/30 uppercase tracking-wider mb-1">Condominio</p>
@@ -412,7 +481,6 @@ function resetFormulario() {
             </div>
           </div>
 
-          <!-- Dates (Airbnb) -->
           <div v-if="esAirbnb" class="flex gap-3 mb-5">
             <div class="flex-1 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
               <p class="text-[10px] text-amber-400 uppercase tracking-wider mb-1">📅 Check-in</p>
@@ -423,13 +491,11 @@ function resetFormulario() {
               <p class="text-sm font-semibold text-white">{{ formatFecha(fechaSalida) }}</p>
             </div>
           </div>
-          <!-- Date (Normal) -->
-          <div v-else class="bg-white/5 rounded-xl p-3 mb-5">
+          <div v-else-if="!esLogistica" class="bg-white/5 rounded-xl p-3 mb-5">
             <p class="text-[10px] text-white/30 uppercase tracking-wider mb-1">Válido hasta</p>
             <p class="text-sm font-semibold text-white">{{ formatFecha(fechaExpiracion) }} · {{ horaExpiracion }}</p>
           </div>
 
-          <!-- QR Code -->
           <div class="flex flex-col items-center">
             <div class="w-48 h-48 bg-white rounded-2xl p-2 shadow-xl shadow-black/30">
               <img v-if="qrImageSrc" :src="qrImageSrc" alt="QR Code" class="w-full h-full" />
@@ -438,14 +504,12 @@ function resetFormulario() {
           </div>
         </div>
 
-        <!-- Footer -->
         <div class="bg-gray-950 px-6 py-3 flex items-center justify-between border-t border-white/5">
           <p class="text-[9px] text-white/20 uppercase tracking-widest">Muestra este gafete al vigilante</p>
           <p class="text-[9px] text-white/20">v2.5</p>
         </div>
       </div>
 
-      <!-- Action Buttons -->
       <div class="flex gap-3">
         <button @click="copiarCodigo" class="btn-secondary flex-1 flex items-center justify-center gap-2">
           <component :is="copiado ? CheckCircle2 : Copy" class="w-4 h-4" />{{ copiado ? "Copiado!" : "Copiar" }}

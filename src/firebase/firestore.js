@@ -537,6 +537,7 @@ let seedUsuarios = [
         apellido: 'TITAN',
         cedula: '00100000000',
         email: 'admin@titan.com',
+        password: '123456',
         telefono: '+1 (809) 555-9999',
         rol: 'admin',
         estado: 'activo',
@@ -548,6 +549,7 @@ let seedUsuarios = [
         apellido: 'Calcagno',
         cedula: '00114793025',
         email: 'propietario@titan.com',
+        password: '123456',
         telefono: '+1 (809) 555-1000',
         rol: 'propietario',
         estado: 'activo',
@@ -559,6 +561,7 @@ let seedUsuarios = [
         apellido: 'Martinez',
         cedula: '40212345678',
         email: 'inquilino@titan.com',
+        password: '123456',
         telefono: '+1 (809) 555-2000',
         rol: 'inquilino',
         estado: 'activo',
@@ -570,11 +573,24 @@ let seedUsuarios = [
         apellido: 'Seguridad',
         cedula: '22300112233',
         email: 'vigilante@titan.com',
+        password: '123456',
         telefono: '+1 (809) 555-3000',
         rol: 'vigilante',
         estado: 'activo',
         condominioAsignado: 'white-sand',
         fechaCreacion: '2026-02-10T06:00:00'
+    },
+    {
+        id: 'pm-01',
+        nombre: 'Carlos',
+        apellido: 'Reyes',
+        cedula: '11122233344',
+        email: 'manager@titan.com',
+        password: '123456',
+        telefono: '+1 (829) 555-4444',
+        rol: 'property_manager',
+        estado: 'activo',
+        fechaCreacion: '2026-02-15T09:00:00'
     }
 ]
 
@@ -729,6 +745,13 @@ export async function buscarUsuarioPorCedula(cedula) {
     const cedulaClean = cedula.replace(/[-\s]/g, '')
     if (MOCK_MODE) return seedUsuarios.find(u => u.cedula.replace(/[-\s]/g, '') === cedulaClean) || null
     const q = query(collection(db, 'usuarios'), where('cedula', '==', cedulaClean))
+    const snap = await getDocs(q)
+    return snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() }
+}
+
+export async function buscarUsuarioPorEmail(email) {
+    if (MOCK_MODE) return seedUsuarios.find(u => u.email.toLowerCase() === email.toLowerCase()) || null
+    const q = query(collection(db, 'usuarios'), where('email', '==', email))
     const snap = await getDocs(q)
     return snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() }
 }
