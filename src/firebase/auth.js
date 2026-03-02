@@ -9,6 +9,7 @@ import {
 } from 'firebase/auth'
 import { doc, setDoc, getDoc } from 'firebase/firestore'
 import { db } from './config.js'
+import { buscarUsuarioPorEmail, getUsuario } from './firestore.js'
 
 // ============================================
 // MODO MOCK (mientras no hay credenciales)
@@ -16,8 +17,6 @@ import { db } from './config.js'
 const MOCK_MODE = true // Cambiar a false cuando Firebase esté configurado
 
 let currentMockUser = null
-
-import { buscarUsuarioPorEmail } from './firestore.js'
 
 // ============================================
 // FUNCIONES DE AUTH
@@ -30,7 +29,7 @@ export async function loginWithEmail(email, password) {
         if (!user || user.password !== password) {
             throw new Error('Credenciales incorrectas')
         }
-        const profile = { ...user }
+        const profile = { ...user, uid: user.id } // Map id to uid for Vue components
         delete profile.password
         // Persist in sessionStorage
         sessionStorage.setItem('titan_user', JSON.stringify(profile))
@@ -84,9 +83,9 @@ export function getCurrentUser() {
 
 export async function getUserProfile(uid) {
     if (MOCK_MODE) {
-        const user = Object.values(mockUsers).find(u => u.uid === uid)
+        const user = await getUsuario(uid)
         if (user) {
-            const profile = { ...user }
+            const profile = { ...user, uid: user.id }
             delete profile.password
             return profile
         }

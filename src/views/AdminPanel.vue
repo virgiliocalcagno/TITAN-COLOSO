@@ -323,7 +323,7 @@
           </div>
           <div>
             <label class="text-xs text-gray-400 uppercase tracking-wider mb-1 block">Rol</label>
-            <select v-model="newUser.rol"
+            <select v-model="newUser.role"
               class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2.5 text-white text-sm focus:border-cyan-500 focus:outline-none">
               <option value="">Seleccionar...</option>
               <option value="propietario">Propietario</option>
@@ -724,17 +724,17 @@ async function eliminarUnidad(id) { await deleteUnidad(id); await refreshData() 
 // ---- Usuarios (Módulo 2) ----
 const usuarios = ref([])
 const userRoleFilter = ref('')
-const newUser = ref({ nombre: '', apellido: '', cedula: '', email: '', telefono: '', rol: '', password: '' })
+const newUser = ref({ nombre: '', apellido: '', cedula: '', email: '', telefono: '', role: '', password: '' })
 const userError = ref('')
 const userSuccess = ref('')
 const cedulaStatus = ref('') // 'valid', 'invalid', ''
 const cedulaMsg = ref('')
 
-const canCreateUser = computed(() => newUser.value.nombre && newUser.value.apellido && newUser.value.cedula && newUser.value.rol && cedulaStatus.value === 'valid')
+const canCreateUser = computed(() => newUser.value.nombre && newUser.value.apellido && newUser.value.cedula && newUser.value.role && cedulaStatus.value === 'valid')
 
 const filteredUsers = computed(() => {
   if (!userRoleFilter.value) return usuarios.value
-  return usuarios.value.filter(u => u.rol === userRoleFilter.value)
+  return usuarios.value.filter(u => u.role === userRoleFilter.value)
 })
 
 function onCedulaInput() {
@@ -750,7 +750,7 @@ async function crearUsuario() {
   try {
     await addUsuario(newUser.value)
     userSuccess.value = 'Usuario registrado exitosamente'
-    newUser.value = { nombre: '', apellido: '', cedula: '', email: '', telefono: '', rol: '', password: '' }
+    newUser.value = { nombre: '', apellido: '', cedula: '', email: '', telefono: '', role: '', password: '' }
     cedulaStatus.value = ''; cedulaMsg.value = ''
     await refreshData()
   } catch (e) { userError.value = e.message }

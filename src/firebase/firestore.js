@@ -539,7 +539,7 @@ let seedUsuarios = [
         email: 'admin@titan.com',
         password: '123456',
         telefono: '+1 (809) 555-9999',
-        rol: 'admin',
+        role: 'admin',
         estado: 'activo',
         fechaCreacion: '2026-01-01T00:00:00'
     },
@@ -551,7 +551,7 @@ let seedUsuarios = [
         email: 'propietario@titan.com',
         password: '123456',
         telefono: '+1 (809) 555-1000',
-        rol: 'propietario',
+        role: 'propietario',
         estado: 'activo',
         fechaCreacion: '2026-01-15T10:00:00'
     },
@@ -563,7 +563,7 @@ let seedUsuarios = [
         email: 'inquilino@titan.com',
         password: '123456',
         telefono: '+1 (809) 555-2000',
-        rol: 'inquilino',
+        role: 'inquilino',
         estado: 'activo',
         fechaCreacion: '2026-02-01T08:00:00'
     },
@@ -575,7 +575,7 @@ let seedUsuarios = [
         email: 'vigilante@titan.com',
         password: '123456',
         telefono: '+1 (809) 555-3000',
-        rol: 'vigilante',
+        role: 'vigilante',
         estado: 'activo',
         condominioAsignado: 'white-sand',
         fechaCreacion: '2026-02-10T06:00:00'
@@ -588,7 +588,7 @@ let seedUsuarios = [
         email: 'manager@titan.com',
         password: '123456',
         telefono: '+1 (829) 555-4444',
-        rol: 'property_manager',
+        role: 'property_manager',
         estado: 'activo',
         fechaCreacion: '2026-02-15T09:00:00'
     }
@@ -771,7 +771,8 @@ export async function buscarUsuarios(termino) {
     return snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(u =>
         u.nombre?.toLowerCase().includes(term) ||
         u.apellido?.toLowerCase().includes(term) ||
-        u.cedula?.includes(term)
+        u.cedula?.includes(term) ||
+        u.role?.toLowerCase().includes(term)
     )
 }
 
