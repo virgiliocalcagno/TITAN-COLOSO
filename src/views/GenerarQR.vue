@@ -5,8 +5,8 @@ import { useFirestore } from '../composables/useFirestore.js'
 import QRCode from 'qrcode'
 import { ChevronDown, Calendar, Clock, User, Building2, Copy, Share2, CheckCircle2, Camera, FileText, Edit3, ArrowLeft, ArrowRight, X, ImageIcon, Download, Truck, ArrowUpRight } from 'lucide-vue-next'
 
-const { userId } = useAuth()
-const { getCondominios, getUnidadesByPropietario, createInvitacion } = useFirestore()
+const { userId, isAdmin } = useAuth()
+const { getCondominios, getUnidades, getUnidadesByPropietario, createInvitacion } = useFirestore()
 
 const condominios = ref([])
 const unidades = ref([])
@@ -53,12 +53,23 @@ const esAirbnb = computed(() => tipoVisitante.value === 'Airbnb')
 const esLogistica = computed(() => ['Mudanza', 'Servicio'].includes(tipoVisitante.value))
 
 onMounted(async () => {
-  condominios.value = await getCondominios() || []
-  unidades.value = await getUnidadesByPropietario(userId.value) || []
-  const tomorrow = new Date()
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  fechaExpiracion.value = tomorrow.toISOString().split('T')[0]
-  fechaInicio.value = new Date().toISOString().split('T')[0]
+  isLoading.value = true
+  try {
+    condominios.value = await getCondominios() || []
+    if (isAdmin.value) {
+      unidades.value = await getUnidades() || []
+    } else {
+      unidades.value = await getUnidadesByPropietario(userId.value) || []
+    }
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    fechaExpiracion.value = tomorrow.toISOString().split('T')[0]
+    fechaInicio.value = new Date().toISOString().split('T')[0]
+  } catch (e) {
+    console.error('Error in onMounted:', e)
+  } finally {
+    isLoading.value = false
+  }
 })
 
 onUnmounted(() => { stopCamera() })

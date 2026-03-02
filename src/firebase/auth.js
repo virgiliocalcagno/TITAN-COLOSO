@@ -9,12 +9,12 @@ import {
 } from 'firebase/auth'
 import { doc, setDoc, getDoc } from 'firebase/firestore'
 import { db } from './config.js'
-import { buscarUsuarioPorEmail, getUsuario } from './firestore.js'
+import { buscarUsuarioPorEmail, getUsuario, seedUsuarios } from './firestore.js'
 
 // ============================================
 // MODO MOCK (mientras no hay credenciales)
 // ============================================
-const MOCK_MODE = false // 🚀 CAMBIADO A FALSE PARA PRODUCCIÓN REAL
+const MOCK_MODE = false // 🚀 ACTIVADO MODO PRODUCCIÓN REAL
 
 let currentMockUser = null
 
@@ -37,9 +37,27 @@ export async function loginWithEmail(email, password) {
     }
 
     // Firebase mode
-    const credential = await signInWithEmailAndPassword(auth, email, password)
-    const profile = await getUserProfile(credential.user.uid)
-    return { ...credential.user, ...profile }
+    try {
+        const credential = await signInWithEmailAndPassword(auth, email, password)
+        const profile = await getUserProfile(credential.user.uid)
+        return { ...credential.user, ...profile }
+    } catch (error) {
+        // REPARACIÓN AUTOMÁTICA: Si es un usuario de las semillas y no existe en Auth, lo creamos
+        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found') {
+            const seedUser = seedUsuarios.find(u => u.email === email && u.password === password)
+            if (seedUser) {
+                console.log('📦 Usuario semilla detectado. Registrando en Firebase Auth...')
+                const newUser = await registerUser(email, password, seedUser.role, {
+                    nombre: seedUser.nombre,
+                    apellido: seedUser.apellido,
+                    cedula: seedUser.cedula,
+                    telefono: seedUser.telefono
+                })
+                return newUser
+            }
+        }
+        throw error
+    }
 }
 
 export async function registerUser(email, password, role, userData) {

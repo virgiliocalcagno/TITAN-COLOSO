@@ -1,7 +1,15 @@
 // Firestore Service - CRUD para las 4 colecciones principales
-// Funciona con mock data cuando no hay credenciales configuradas
-const MOCK_MODE = false // 🚀 CAMBIADO A FALSE PARA PRODUCCIÓN REAL
-const ENABLE_AUTO_SEED = true // Permite cargar datos iniciales si la DB está vacía
+const MOCK_MODE = false // 🚀 ACTIVADO MODO PRODUCCIÓN REAL
+
+// Helper para persistencia local en modo Mock (Deshabilitado en modo Real)
+const saveToLocal = (key, data) => {
+    if (MOCK_MODE) localStorage.setItem(`titan_${key}`, JSON.stringify(data))
+}
+const loadFromLocal = (key, defaultData) => {
+    if (!MOCK_MODE) return defaultData
+    const saved = localStorage.getItem(`titan_${key}`)
+    return saved ? JSON.parse(saved) : defaultData
+}
 
 import { db } from './config.js'
 import {
@@ -10,16 +18,17 @@ import {
 } from 'firebase/firestore'
 import { seedFirestore } from './seeder.js'
 
-// Intentar seed al cargar si está habilitado
-if (ENABLE_AUTO_SEED) {
-    seedFirestore().catch(console.error)
+// Intentar seed al cargar si estamos en modo real
+if (!MOCK_MODE) {
+    seedFirestore().catch(e => console.error('Error seeding firestore:', e))
 }
+
 
 // ============================================
 // DATOS SEED (Unidades reales del propietario)
 // ============================================
 
-export const seedCondominios = [
+export let seedCondominios = loadFromLocal('condominios', [
     {
         id: 'white-sand',
         nombre: 'White Sand',
@@ -47,10 +56,10 @@ export const seedCondominios = [
         tipo_agrupador: 'Manzana',
         config_nomenclatura: { formato: 'manzana_numero', ejemplo: 'C-4' }
     }
-]
+])
 
 // Agrupadores (Edificios/Bloques/Manzanas dentro de cada condominio)
-export const seedAgrupadores = [
+export let seedAgrupadores = loadFromLocal('agrupadores', [
     { id: 'ws-ed1', condominioId: 'white-sand', nombre: 'Edificio 1', orden: 1 },
     { id: 'ws-ed2', condominioId: 'white-sand', nombre: 'Edificio 2', orden: 2 },
     { id: 'ws-ed3', condominioId: 'white-sand', nombre: 'Edificio 3', orden: 3 },
@@ -64,10 +73,10 @@ export const seedAgrupadores = [
     { id: 'pb-mzA', condominioId: 'pueblo-bavaro', nombre: 'Manzana A', orden: 1 },
     { id: 'pb-mzB', condominioId: 'pueblo-bavaro', nombre: 'Manzana B', orden: 2 },
     { id: 'pb-mzC', condominioId: 'pueblo-bavaro', nombre: 'Manzana C', orden: 3 },
-]
+])
 
 // Unidades (ahora con agrupadorId para jerarquía completa)
-export const seedUnidades = [
+export let seedUnidades = loadFromLocal('unidades', [
     { id: 'ws-3a1', codigo_unidad: '3A1', condominioId: 'white-sand', condominioNombre: 'White Sand', agrupadorId: 'ws-ed3', agrupadorNombre: 'Edificio 3', propietarioId: 'owner-virgilio', estado: true, piso: 1, letra: 'A' },
     { id: 'ws-3b1', codigo_unidad: '3B1', condominioId: 'white-sand', condominioNombre: 'White Sand', agrupadorId: 'ws-ed3', agrupadorNombre: 'Edificio 3', propietarioId: null, estado: true, piso: 1, letra: 'B' },
     { id: 'ws-3c1', codigo_unidad: '3C1', condominioId: 'white-sand', condominioNombre: 'White Sand', agrupadorId: 'ws-ed3', agrupadorNombre: 'Edificio 3', propietarioId: null, estado: true, piso: 1, letra: 'C' },
@@ -75,9 +84,9 @@ export const seedUnidades = [
     { id: 'sd-1a1', codigo_unidad: 'B1-A1', condominioId: 'sea-dream', condominioNombre: 'Sea Dream', agrupadorId: 'sd-bl1', agrupadorNombre: 'Bloque 1', propietarioId: 'owner-virgilio', estado: true, piso: 1, letra: 'A' },
     { id: 'sd-1b1', codigo_unidad: 'B1-B1', condominioId: 'sea-dream', condominioNombre: 'Sea Dream', agrupadorId: 'sd-bl1', agrupadorNombre: 'Bloque 1', propietarioId: null, estado: true, piso: 1, letra: 'B' },
     { id: 'pb-c4', codigo_unidad: 'C-4', condominioId: 'pueblo-bavaro', condominioNombre: 'Pueblo Bávaro', agrupadorId: 'pb-mzC', agrupadorNombre: 'Manzana C', propietarioId: 'owner-virgilio', estado: true, piso: null, letra: null },
-]
+])
 
-let seedInvitaciones = [
+export let seedInvitaciones = loadFromLocal('invitaciones', [
     {
         id: 'inv-001',
         idQR: 'TITAN-WS-G44-A1B2C3',
@@ -126,7 +135,7 @@ let seedInvitaciones = [
         fechaExpiracion: '2026-02-25T16:00:00',
         fotoDocumento: null
     }
-]
+])
 
 // ============================================
 // CONDOMINIOS
@@ -192,6 +201,7 @@ export async function createInvitacion(data) {
     if (MOCK_MODE) {
         invitacion.id = 'inv-' + Date.now()
         seedInvitaciones.push(invitacion)
+        saveToLocal('invitaciones', seedInvitaciones)
         return invitacion
     }
 
@@ -288,6 +298,7 @@ export async function addCondominio(data) {
     if (MOCK_MODE) {
         if (seedCondominios.find(c => c.id === id)) throw new Error('Ya existe un condominio con ese nombre')
         seedCondominios.push(nuevo)
+        saveToLocal('condominios', seedCondominios)
         return nuevo
     }
     await addDoc(collection(db, 'condominios'), data)
@@ -537,7 +548,7 @@ export async function generarUnidadesBatch(config) {
 // USUARIOS (Módulo 2)
 // ============================================
 
-export const seedUsuarios = [
+export let seedUsuarios = loadFromLocal('usuarios', [
     {
         id: 'admin-01',
         nombre: 'Admin',
@@ -599,13 +610,13 @@ export const seedUsuarios = [
         estado: 'activo',
         fechaCreacion: '2026-02-15T09:00:00'
     }
-]
+])
 
 // ============================================
 // ASIGNACIONES UNIDADES (Tabla relacional)
 // ============================================
 
-export const seedAsignaciones = [
+export let seedAsignaciones = loadFromLocal('asignaciones', [
     {
         id: 'asig-001',
         usuario_id: 'owner-virgilio',
@@ -642,7 +653,7 @@ export const seedAsignaciones = [
         fecha_inicio: '2026-02-01',
         fecha_fin: '2026-08-01'
     }
-]
+])
 
 // ============================================
 // VALIDACIÓN CÉDULA DOMINICANA
@@ -714,6 +725,7 @@ export async function addUsuario(data) {
 
     if (MOCK_MODE) {
         seedUsuarios.push(nuevo)
+        saveToLocal('usuarios', seedUsuarios)
         return nuevo
     }
 
@@ -743,6 +755,7 @@ export async function deleteUsuario(id) {
 
     if (MOCK_MODE) {
         seedUsuarios = seedUsuarios.filter(u => u.id !== id)
+        saveToLocal('usuarios', seedUsuarios)
         return true
     }
     await deleteDoc(doc(db, 'usuarios', id))
