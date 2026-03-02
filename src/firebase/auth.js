@@ -8,8 +8,9 @@ import {
     onAuthStateChanged
 } from 'firebase/auth'
 import { doc, setDoc, getDoc } from 'firebase/firestore'
-import { db } from './config.js'
+import { auth, db } from './config.js'
 import { buscarUsuarioPorEmail, getUsuario, seedUsuarios } from './firestore.js'
+import { seedFirestore } from './seeder.js'
 
 // ============================================
 // MODO MOCK (mientras no hay credenciales)
@@ -38,6 +39,12 @@ export async function loginWithEmail(email, password) {
 
     // Firebase mode
     try {
+        // Asegurar que Firestore tenga los datos iniciales si es la primera vez en producción
+        const { seedFirestore } = await import('./firestore.js')
+        const { seedFirestore: runSeed } = await import('./seeder.js')
+        // El seeder solo se ejecuta si la colección está vacía
+        runSeed().catch(e => console.error('📦 Seeding info:', e))
+
         const credential = await signInWithEmailAndPassword(auth, email, password)
         const profile = await getUserProfile(credential.user.uid)
         return { ...credential.user, ...profile }

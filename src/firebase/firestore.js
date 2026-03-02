@@ -16,12 +16,6 @@ import {
     collection, doc, getDoc, getDocs, addDoc, updateDoc,
     query, where, orderBy, serverTimestamp, deleteDoc
 } from 'firebase/firestore'
-import { seedFirestore } from './seeder.js'
-
-// Intentar seed al cargar si estamos en modo real
-if (!MOCK_MODE) {
-    seedFirestore().catch(e => console.error('Error seeding firestore:', e))
-}
 
 
 // ============================================
