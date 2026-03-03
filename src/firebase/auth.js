@@ -144,8 +144,30 @@ export async function getUserProfile(uid) {
         return null
     }
     try {
-        const snap = await getDoc(doc(db, 'usuarios', uid))
-        return snap.exists() ? snap.data() : null
+        // 1. Intentar por UID (ID del documento)
+        const docRef = doc(db, 'usuarios', uid)
+        const snap = await getDoc(docRef)
+
+        if (snap.exists()) {
+            return snap.data()
+        }
+
+        // 2. Si no se encuentra por UID, buscar por Email
+        // Esto es crítico para vincular usuarios de las semillas (que tienen IDs como 'admin-01')
+        const userEmail = auth.currentUser?.email
+        if (userEmail) {
+            console.log(`🔍 Perfil no encontrado por UID. Buscando por email: ${userEmail}...`)
+            const profile = await buscarUsuarioPorEmail(userEmail)
+            if (profile) {
+                console.log('✅ Perfil encontrado por email. Vinculando UID...')
+                // Opcional: Migrar el documento al nuevo UID para futuras búsquedas rápidas
+                const { id, ...data } = profile
+                await setDoc(doc(db, 'usuarios', uid), { ...data, uid })
+                return { ...data, uid }
+            }
+        }
+
+        return null
     } catch (error) {
         if (error.code === 'unavailable' || error.message.includes('offline')) {
             console.error('📡 Firestore está offline o no inicializado.')
