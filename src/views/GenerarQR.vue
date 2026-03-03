@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useAuth } from '../composables/useAuth.js'
 import { useFirestore } from '../composables/useFirestore.js'
+import { extraerDatosDocumento } from '../services/ai.js'
 import QRCode from 'qrcode'
 import { ChevronDown, Calendar, Clock, User, Building2, Copy, Share2, CheckCircle2, Camera, FileText, Edit3, ArrowLeft, ArrowRight, X, ImageIcon, Download, Truck, ArrowUpRight } from 'lucide-vue-next'
 
@@ -13,6 +14,8 @@ const unidades = ref([])
 const selectedCondominio = ref('')
 const selectedUnidad = ref('')
 const nombreVisitante = ref('')
+const telefono = ref('')
+const nacionalidad = ref('')
 const documentoId = ref('')
 const tipoDocumento = ref('cedula')
 const tipoVisitante = ref('Huesped')
@@ -27,6 +30,12 @@ const qrImageSrc = ref('')
 const copiado = ref(false)
 const isLoading = ref(false)
 const paso = ref(1) // 1=formulario, 2=revision, 3=qr/gafete generado
+
+const paisOrigen = ref('')
+const showPhotoMenu = ref(false)
+const isOcrProcessing = ref(false)
+const ocrError = ref('')
+const fileInput = ref(null)
 
 // Camera
 const cameraActive = ref(false)
@@ -81,7 +90,7 @@ const unidadesFiltradas = computed(() => {
 const condominioSeleccionado = computed(() => condominios.value.find(c => c.id === selectedCondominio.value))
 const unidadSeleccionada = computed(() => unidades.value.find(u => u.id === selectedUnidad.value))
 const formularioValido = computed(() => {
-  if (!selectedCondominio.value || !selectedUnidad.value || !nombreVisitante.value.trim() || !fechaExpiracion.value) return false
+  if (!selectedCondominio.value || !selectedUnidad.value || !nombreVisitante.value.trim() || !telefono.value.trim() || !fechaExpiracion.value) return false
   if (esAirbnb.value && (!fechaInicio.value || !fechaSalida.value)) return false
   if (esLogistica.value && (!vehiculoPlaca.value || !vehiculoTipo.value)) return false
   return true
@@ -109,8 +118,9 @@ function capturePhoto() {
   canvas.height = videoRef.value.videoHeight
   const ctx = canvas.getContext('2d')
   ctx.drawImage(videoRef.value, 0, 0)
-  fotoDocumento.value = canvas.toDataURL('image/jpeg', 0.7)
+  const base64 = canvas.toDataURL('image/jpeg', 0.7)
   stopCamera()
+  processImageForOcr(base64)
 }
 
 function stopCamera() {
@@ -121,7 +131,55 @@ function stopCamera() {
   cameraActive.value = false
 }
 
-function removeFoto() { fotoDocumento.value = null }
+function removeFoto() { 
+  fotoDocumento.value = null 
+  paisOrigen.value = ''
+}
+
+function openPhotoMenu() { showPhotoMenu.value = true }
+function closePhotoMenu() { showPhotoMenu.value = false }
+
+function processImageForOcr(base64) {
+  fotoDocumento.value = base64
+  isOcrProcessing.value = true
+  ocrError.value = ''
+  
+  extraerDatosDocumento(base64)
+    .then(data => {
+      // Auto-populate ONLY IF EMPTY
+      if(data.nombre && data.nombre !== 'N/A' && !nombreVisitante.value) {
+        nombreVisitante.value = data.nombre + (data.apellido !== 'N/A' ? ' ' + data.apellido : '')
+      }
+      if(data.documento && data.documento !== 'N/A' && !documentoId.value) documentoId.value = data.documento
+      if(data.tipo && ['pasaporte', 'cedula'].includes(data.tipo.toLowerCase()) && tipoDocumento.value === 'cedula' && !documentoId.value) tipoDocumento.value = data.tipo.toLowerCase()
+      if(data.pais_origen && data.pais_origen !== 'N/A' && !paisOrigen.value) paisOrigen.value = data.pais_origen
+      if(data.nacionalidad && data.nacionalidad !== 'N/A' && !nacionalidad.value) nacionalidad.value = data.nacionalidad
+      if(data.telefono && data.telefono !== 'N/A' && !telefono.value) telefono.value = data.telefono
+      
+      if(esAirbnb.value || esLogistica.value) {
+         if(data.fechaInicio && data.fechaInicio !== 'N/A' && !fechaInicio.value) fechaInicio.value = data.fechaInicio
+         if(data.fechaSalida && data.fechaSalida !== 'N/A' && !fechaSalida.value) fechaSalida.value = data.fechaSalida
+      }
+    })
+    .catch(err => {
+      ocrError.value = 'El OCR falló. Por favor digite los datos manualmente.'
+      console.error(err)
+    })
+    .finally(() => {
+      isOcrProcessing.value = false
+    })
+}
+
+function handleFileUpload(event) {
+  const file = event.target.files[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    closePhotoMenu()
+    processImageForOcr(e.target.result)
+  }
+  reader.readAsDataURL(file)
+}
 
 // Navigation
 function irARevision() {
@@ -141,8 +199,11 @@ async function generarQR() {
       unidadNumero: unidadSeleccionada.value?.codigo_unidad || unidadSeleccionada.value?.numero || '',
       propietarioId: userId.value,
       nombreVisitante: nombreVisitante.value,
+      telefono: telefono.value,
+      nacionalidad: nacionalidad.value,
       documentoId: documentoId.value,
       tipoDocumento: tipoDocumento.value,
+      pais_origen: paisOrigen.value,
       tipo: tipoVisitante.value,
       fechaExpiracion: esAirbnb.value
         ? fechaSalida.value + 'T23:59:00'
@@ -202,8 +263,12 @@ function resetFormulario() {
   qrCodigo.value = ''
   qrImageSrc.value = ''
   nombreVisitante.value = ''
+  telefono.value = ''
+  nacionalidad.value = ''
   documentoId.value = ''
+  paisOrigen.value = ''
   fotoDocumento.value = null
+  ocrError.value = ''
   fechaExpiracion.value = ''
   fechaInicio.value = ''
   fechaSalida.value = ''
@@ -228,14 +293,21 @@ function resetFormulario() {
 
     <!-- Camera Modal -->
     <div v-if="cameraActive" class="fixed inset-0 z-[80] bg-black flex flex-col">
-      <div class="flex justify-between items-center p-4">
-        <p class="text-white font-medium">Fotografiar Documento</p>
+      <div class="flex justify-between items-center p-4 z-10">
+        <p class="text-white font-medium">Encuadre el Documento</p>
         <button @click="stopCamera" class="p-2 rounded-full bg-white/10"><X class="w-5 h-5 text-white" /></button>
       </div>
-      <div class="flex-1 flex items-center justify-center">
-        <video ref="videoRef" autoplay playsinline class="w-full h-full object-cover"></video>
+      <div class="flex-1 relative flex items-center justify-center overflow-hidden">
+        <video ref="videoRef" autoplay playsinline class="absolute inset-0 w-full h-full object-cover"></video>
+        <!-- Overlay -->
+        <div class="absolute inset-0 pointer-events-none" style="box-shadow: inset 0 0 0 2000px rgba(0,0,0,0.6);"></div>
+        <!-- Inner guide -->
+        <div class="relative w-[85%] max-w-sm aspect-[1.58/1] border-2 border-white/50 rounded-xl overflow-hidden pointer-events-none flex flex-col items-center justify-center">
+          <div class="absolute inset-0 border-4 border-emerald-500/50 rounded-xl"></div>
+          <p class="text-white/40 text-[10px] font-bold tracking-widest uppercase mb-auto mt-4">Frente del ID aquí</p>
+        </div>
       </div>
-      <div class="p-6 flex justify-center">
+      <div class="p-6 flex justify-center z-10 relative">
         <button @click="capturePhoto" class="w-16 h-16 rounded-full bg-white ring-4 ring-white/30 active:scale-90 transition-transform"></button>
       </div>
     </div>
@@ -260,7 +332,10 @@ function resetFormulario() {
 
       <div class="glass-card p-4 space-y-3" v-if="selectedUnidad">
         <label class="text-xs font-semibold text-white/60 uppercase tracking-wider flex items-center gap-2"><User class="w-4 h-4" />Datos del Visitante</label>
-        <input v-model="nombreVisitante" type="text" placeholder="Nombre del visitante" class="input-field" />
+        <div class="grid grid-cols-2 gap-2">
+            <input v-model="nombreVisitante" type="text" placeholder="Nombre completo" class="input-field" />
+            <input v-model="telefono" type="tel" placeholder="Teléfono" class="input-field" :class="!telefono ? 'border-red-500/50 border' : ''" />
+        </div>
         <div class="grid grid-cols-5 gap-2">
           <select v-model="tipoDocumento" class="input-field col-span-2 text-xs">
             <option value="cedula">Cédula</option>
@@ -268,16 +343,45 @@ function resetFormulario() {
           </select>
           <input v-model="documentoId" type="text" :placeholder="tipoDocumento === 'cedula' ? '001-0000000-0' : 'PA12345678'" class="input-field col-span-3" />
         </div>
-        <!-- Camera / Photo -->
-        <div class="flex gap-2">
-          <button v-if="!fotoDocumento" @click="openCamera" class="flex-1 py-3 px-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all flex items-center justify-center gap-2 text-sm text-white/60">
-            <Camera class="w-4 h-4" /> Fotografiar documento
-          </button>
-          <div v-else class="flex-1 relative">
-            <img :src="fotoDocumento" class="w-full h-24 object-cover rounded-xl" />
-            <button @click="removeFoto" class="absolute top-1 right-1 p-1 rounded-full bg-red-500/80"><X class="w-3 h-3 text-white" /></button>
-            <div class="absolute bottom-1 left-1 bg-emerald-500/80 px-2 py-0.5 rounded text-[10px] text-white flex items-center gap-1"><CheckCircle2 class="w-3 h-3" /> Capturado</div>
+        
+        <div v-if="nacionalidad" class="animate-fade-in-up mt-2">
+            <label class="text-[10px] text-titan-400 uppercase tracking-wider block mb-1">Nacionalidad</label>
+            <input v-model="nacionalidad" class="w-full bg-titan-500/10 border border-titan-500/30 rounded-lg px-3 py-2 text-titan-200 text-sm focus:border-titan-500 focus:outline-none" />
+        </div>
+
+        <!-- Camera / Photo Menu -->
+        <div class="space-y-2 mt-4 pt-4 border-t border-white/5">
+          <!-- Captured Photo Badges -->
+          <div v-if="fotoDocumento" class="relative animate-scale-up mb-2">
+            <img :src="fotoDocumento" class="w-full h-16 object-cover rounded-xl border border-emerald-500/30 grayscale contrast-125 brightness-50" />
+            <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent rounded-xl flex items-center justify-center pointer-events-none">
+              <span class="text-emerald-400 font-bold text-xs tracking-widest uppercase"><CheckCircle2 class="w-4 h-4 inline mr-1 -mt-0.5" />Analizado</span>
+            </div>
+            <button @click="removeFoto" title="Descartar documento" class="absolute top-1 right-1 p-1 rounded-full bg-red-500/90 hover:bg-red-400 transition-colors pointer-events-auto"><X class="w-3.5 h-3.5 text-white" /></button>
           </div>
+
+          <!-- Main Button Options -->
+          <div v-if="!isOcrProcessing" class="space-y-2">
+            <p v-if="fotoDocumento" class="text-[10px] uppercase tracking-widest text-titan-300 font-bold text-center mt-3">Extraer más información (opcional)</p>
+            <p v-if="fotoDocumento" class="text-xs text-white/40 text-center mb-1 leading-tight">Añade otra captura (ej. Airbnb o contacto) para autocompletar otros campos vacíos sin borrar lo anterior.</p>
+            <div class="grid grid-cols-2 gap-2">
+              <button @click="openCamera" class="flex-1 py-3 px-2 rounded-xl transition-all flex flex-col items-center justify-center gap-1 text-xs hover:border-white/30" :class="fotoDocumento ? 'border border-dashed border-white/20 bg-transparent text-white/50' : 'bg-white/5 text-white/60 hover:bg-white/10'">
+                <Camera class="w-5 h-5" :class="fotoDocumento ? 'text-white/40' : 'text-titan-400'" /> Cámara
+              </button>
+              <button @click="() => fileInput?.click()" class="flex-1 py-3 px-2 rounded-xl transition-all flex flex-col items-center justify-center gap-1 text-xs hover:border-white/30" :class="fotoDocumento ? 'border border-dashed border-white/20 bg-transparent text-white/50' : 'bg-white/5 text-white/60 hover:bg-white/10'">
+                <ImageIcon class="w-5 h-5" :class="fotoDocumento ? 'text-white/40' : 'text-titan-400'" /> Galería
+              </button>
+              <input type="file" ref="fileInput" accept="image/*" class="hidden" @change="handleFileUpload" />
+            </div>
+          </div>
+
+          <!-- Loading State -->
+          <div v-else class="flex flex-col items-center justify-center gap-2 py-6 bg-white/5 rounded-xl border border-titan-500/30">
+            <div class="w-8 h-8 border-2 border-titan-500 border-t-transparent rounded-full animate-spin"></div>
+            <p class="text-xs font-medium text-titan-300">Escaneando con Gemini OCR...</p>
+          </div>
+          
+          <p v-if="ocrError" class="text-xs text-red-400 text-center">{{ ocrError }}</p>
         </div>
       </div>
 
@@ -372,9 +476,15 @@ function resetFormulario() {
             <p class="text-white font-medium">{{ condominioSeleccionado?.nombre }} · {{ unidadSeleccionada?.codigo_unidad || unidadSeleccionada?.numero }}</p>
           </div>
           <div class="h-px bg-white/5"></div>
-          <div>
-            <label class="text-[10px] text-white/40 uppercase tracking-wider">Visitante</label>
-            <input v-model="nombreVisitante" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-titan-500 focus:outline-none mt-1" />
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-[10px] text-white/40 uppercase tracking-wider">Visitante</label>
+              <input v-model="nombreVisitante" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-titan-500 focus:outline-none mt-1" />
+            </div>
+            <div>
+              <label class="text-[10px] text-white/40 uppercase tracking-wider">Teléfono</label>
+              <input v-model="telefono" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-titan-500 focus:outline-none mt-1" />
+            </div>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
@@ -387,6 +497,16 @@ function resetFormulario() {
             <div>
               <label class="text-[10px] text-white/40 uppercase tracking-wider">Documento</label>
               <input v-model="documentoId" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-titan-500 focus:outline-none mt-1" />
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div v-if="nacionalidad" class="animate-fade-in-up">
+              <label class="text-[10px] text-titan-400 uppercase tracking-wider">Nacionalidad</label>
+              <input v-model="nacionalidad" class="w-full bg-titan-500/10 border border-titan-500/30 rounded-lg px-3 py-2 text-titan-200 text-sm focus:border-titan-500 focus:outline-none mt-1" />
+            </div>
+            <div v-if="paisOrigen" class="animate-fade-in-up">
+              <label class="text-[10px] text-titan-400 uppercase tracking-wider">País Emisor (Doc)</label>
+              <input v-model="paisOrigen" class="w-full bg-titan-500/10 border border-titan-500/30 rounded-lg px-3 py-2 text-titan-200 text-sm focus:border-titan-500 focus:outline-none mt-1" />
             </div>
           </div>
           <div v-if="esLogistica" class="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 space-y-2">
@@ -477,7 +597,13 @@ function resetFormulario() {
             </div>
             <div class="flex-1">
               <p class="text-lg font-bold text-white">{{ nombreVisitante }}</p>
-              <p class="text-xs text-white/40">{{ tipoDocumento === 'cedula' ? 'Cédula' : 'Pasaporte' }}: {{ documentoId || 'N/A' }}</p>
+              <div class="flex flex-col gap-0.5 mt-0.5">
+                <p class="text-xs text-white/40">{{ tipoDocumento === 'cedula' ? 'Cédula' : 'Pasaporte' }}: <span class="text-white">{{ documentoId || 'N/A' }}</span></p>
+                <p v-if="telefono" class="text-[10px] text-white/60 font-mono tracking-wide mt-0.5">📞 {{ telefono }}</p>
+                <p v-if="nacionalidad || paisOrigen" class="text-[10px] text-titan-300 font-medium uppercase tracking-widest mt-0.5">
+                  <span class="text-white/40">Origen:</span> {{ nacionalidad || paisOrigen }}
+                </p>
+              </div>
             </div>
           </div>
 

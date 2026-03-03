@@ -2,7 +2,8 @@ import {
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
     signOut,
-    onAuthStateChanged
+    onAuthStateChanged,
+    sendPasswordResetEmail
 } from 'firebase/auth'
 import { doc, setDoc, getDoc } from 'firebase/firestore'
 import { auth, db } from './config.js'
@@ -114,6 +115,14 @@ export async function logout() {
         return
     }
     await signOut(auth)
+}
+
+export async function resetPassword(email) {
+    if (MOCK_MODE) {
+        console.log(`Mock: Email de reseteo enviado a ${email}`)
+        return
+    }
+    await sendPasswordResetEmail(auth, email)
 }
 
 export function getCurrentUser() {

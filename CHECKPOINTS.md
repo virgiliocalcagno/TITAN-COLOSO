@@ -6,24 +6,41 @@ Sistema de checkpoints para restaurar la aplicación a un estado estable previo.
 
 ## Versiones
 
-| Versión | Fecha | Descripción |
-|---------|-------|-------------|
-| v1.0.0 | 2026-03-01 | Release inicial completo |
-| v1.1.0 | 2026-03-01 | Módulo 2: Gestión de Identidades y Asignaciones |
-| v1.2.0 | 2026-03-01 | Módulo 3: Operación de Accesos y Seguridad |
+| Versión | Fecha      | Descripción                                            |
+| ------- | ---------- | ------------------------------------------------------ |
+| v1.0.0  | 2026-03-01 | Release inicial completo                               |
+| v1.1.0  | 2026-03-01 | Módulo 2: Gestión de Identidades y Asignaciones        |
+| v1.2.0  | 2026-03-01 | Módulo 3: Operación de Accesos y Seguridad             |
+| v1.3.0  | 2026-03-02 | Módulo 4: IA, OCR en Cascada e Identidad Internacional |
 
 ---
 
 ## Checkpoints
 
-### CP003 — v1.2.0 Operación de Accesos y Seguridad ⭐ ACTUAL
+### CP004 — v1.3.0 Inteligencia Artificial e Identidad Internacional ⭐ ACTUAL
 
-- **Fecha**: 2026-03-01 17:43 AST
-- **Commit**: `d71a405`
-- **Tag**: `v1.2.0`
+- **Fecha**: 2026-03-02 23:59 AST
+- **Commit**: *(Se generará al confirmar)*
+- **Tag**: `v1.3.0`
 - **Branch**: `main`
 - **Deploy**: [titan-coloso.web.app](https://titan-coloso.web.app)
 - **Estado**: ✅ Estable
+
+**Funcionalidades incluidas:**
+
+- Integración de API **Gemini 2.5 Flash** (`@google/generative-ai`) para extracción inteligente de datos.
+- OCR dinámico y en Cascada (permite sumar datos de varias fotos sin borrar lo anterior).
+- Captura de **Nacionalidad**, **Teléfono (obligatorio)** y extracción de fechas cruzadas (ej. con Airbnb).
+- Guía visual fotográfica con overlay en cámara en vivo.
+- Lógica Zero-Trust de recuperación de Password de forma autónoma (email) y asistida (Admin Panel).
+- Actualización del algoritmo `validarDocumento()` para soportar IDs internacionales y Pasaportes sin chocar con Cédulas.
+- Sistema de Delete en Cascada (Borrado forzado Super Admin) en Firestore.
+
+---
+
+### CP003 — v1.2.0 Operación de Accesos y Seguridad
+
+- **Fecha**: 2026-03-01 17:43 AST
 
 **Funcionalidades incluidas:**
 
@@ -107,4 +124,4 @@ git checkout -b hotfix/desde-v1.1 v1.1.0
 
 ## Próximo checkpoint previsto
 
-- **CP004 — v1.3.0**: Notificaciones Push con Firebase Cloud Messaging
+- **CP005 — v1.4.0**: Dashboard Avanzado y Explotación de Datos de Visitas

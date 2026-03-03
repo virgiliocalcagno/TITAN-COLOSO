@@ -406,10 +406,19 @@
             <input v-model="newUser.apellido" placeholder="Apellido"
               class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2.5 text-white text-sm focus:border-cyan-500 focus:outline-none" />
           </div>
-          <div>
-            <label class="text-xs text-gray-400 uppercase tracking-wider mb-1 block">Cedula</label>
-            <input v-model="newUser.cedula" placeholder="001-0000000-0" @input="onCedulaInput"
-              class="w-full bg-gray-900/50 border rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none transition-all"
+          <div class="col-span-2 md:col-span-1">
+            <label class="text-xs text-gray-400 uppercase tracking-wider mb-1 block">Tipo de Documento</label>
+            <select v-model="newUser.tipo_documento" @change="onCedulaInput"
+              class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2.5 text-white text-sm focus:border-cyan-500 focus:outline-none">
+              <option value="cedula">Cédula Dominicana</option>
+              <option value="pasaporte">Pasaporte</option>
+              <option value="otro">Otro Documento</option>
+            </select>
+          </div>
+          <div class="col-span-2 md:col-span-1">
+            <label class="text-xs text-gray-400 uppercase tracking-wider mb-1 block">Número de Documento</label>
+            <input v-model="newUser.cedula" placeholder="Ej: 001-0000000-0 o Pasaporte" @input="onCedulaInput"
+              class="w-full bg-gray-900/50 border rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none transition-all uppercase"
               :class="cedulaStatus === 'valid' ? 'border-emerald-500 focus:border-emerald-400' : cedulaStatus === 'invalid' ? 'border-red-500 focus:border-red-400' : 'border-gray-700/50 focus:border-cyan-500'" />
             <p v-if="cedulaMsg" class="text-xs mt-1" :class="cedulaStatus === 'valid' ? 'text-emerald-400' : 'text-red-400'">{{ cedulaMsg }}</p>
           </div>
@@ -467,9 +476,23 @@
               <input v-model="editUserData.nombre" placeholder="Nombre" class="bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none" />
               <input v-model="editUserData.apellido" placeholder="Apellido" class="bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none" />
             </div>
+            <div class="grid grid-cols-2 gap-2 mt-2">
+              <select v-model="editUserData.tipo_documento" class="bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none">
+                <option value="cedula">Cédula</option>
+                <option value="pasaporte">Pasaporte</option>
+                <option value="otro">Otro</option>
+              </select>
+              <input v-model="editUserData.cedula" placeholder="Número Documento" class="uppercase bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none" />
+            </div>
             <input v-model="editUserData.email" placeholder="Email" class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none" />
             <input v-model="editUserData.telefono" placeholder="Teléfono" class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none" />
-            <div class="flex gap-2">
+            <div class="flex flex-col gap-2 mt-2">
+              <button @click="enviarResetPassword(u.email)" class="w-full py-2 rounded-lg text-xs font-medium bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600/40 transition-all flex items-center justify-center gap-2">
+                <Mail :size="14" /> Enviar Enlace de Recuperación de Password
+              </button>
+              <p v-if="resetEmailSentMsg && u.email === lastResetEmail" class="text-xs text-emerald-400 text-center">{{ resetEmailSentMsg }}</p>
+            </div>
+            <div class="flex gap-2 mt-2">
               <button @click="guardarEdicionUsuario(u.id)" class="flex-1 py-2 rounded-lg text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-500 transition-all flex items-center justify-center gap-1"><Check :size="14" /> Guardar</button>
               <button @click="editingUserId = null" class="flex-1 py-2 rounded-lg text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 transition-all">Cancelar</button>
             </div>
@@ -482,7 +505,7 @@
             </div>
             <div class="flex-1 min-w-0">
               <p class="text-white text-sm font-medium truncate">{{ u.nombre }} {{ u.apellido }}</p>
-              <p class="text-gray-400 text-[11px]">{{ formatCedula(u.cedula) }} · {{ u.email }}</p>
+              <p class="text-gray-400 text-[11px]">{{ formatDocumento(u.cedula, u.tipo_documento) }} · {{ u.email }}</p>
               <p v-if="u.telefono" class="text-gray-500 text-[10px]">Tel: {{ u.telefono }}</p>
             </div>
             <div class="flex flex-col items-end gap-1">
@@ -527,7 +550,7 @@
               <div class="w-7 h-7 rounded-lg bg-cyan-500/20 flex items-center justify-center text-cyan-300 text-[10px] font-bold">{{ u.nombre[0] }}{{ u.apellido[0] }}</div>
               <div>
                 <p class="text-white text-xs font-medium">{{ u.nombre }} {{ u.apellido }}</p>
-                <p class="text-gray-500 text-[10px]">{{ formatCedula(u.cedula) }}</p>
+                <p class="text-gray-500 text-[10px]">{{ formatDocumento(u.cedula, u.tipo_documento) }}</p>
               </div>
             </button>
           </div>
@@ -537,7 +560,7 @@
               <div class="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center text-cyan-300 text-xs font-bold">{{ asigSelectedUser.nombre[0] }}{{ asigSelectedUser.apellido[0] }}</div>
               <div>
                 <p class="text-cyan-300 text-sm font-medium">{{ asigSelectedUser.nombre }} {{ asigSelectedUser.apellido }}</p>
-                <p class="text-gray-400 text-[10px]">{{ formatCedula(asigSelectedUser.cedula) }}</p>
+                <p class="text-gray-400 text-[10px]">{{ formatDocumento(asigSelectedUser.cedula, asigSelectedUser.tipo_documento) }}</p>
               </div>
             </div>
             <button @click="asigSelectedUser = null; asigSearchTerm = ''" class="text-gray-400 hover:text-white"><X :size="16" /></button>
@@ -760,19 +783,24 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuth } from '../composables/useAuth.js'
 import { 
   Building2, Plus, Trash2, Search, Check, X, Pencil, Loader2, CheckCircle, 
-  LayoutGrid, Wand2, List, Users, UserPlus, Link, AlertTriangle, History, LogIn, FileText
+  LayoutGrid, Wand2, List, Users, UserPlus, Link, AlertTriangle, History, LogIn, FileText, Mail
 } from 'lucide-vue-next'
 import {
   getCondominios, getUnidades, getAgrupadores, getAdminStats,
   addCondominio, deleteCondominio, deleteUnidad, updateUnidad,
   generarNomenclaturaPreview, generarUnidadesBatch,
   getUsuarios, addUsuario, updateUsuario, deleteUsuario, buscarUsuarios,
-  validarCedulaDominicana,
+  validarDocumento,
   getAsignaciones, addAsignacion, removeAsignacion, editarAsignacion,
   getActividadByCondominio
 } from '../firebase/firestore.js'
+
+const router = useRouter()
+const { resetPassword } = useAuth()
 
 // State
 const condominios = ref([])
@@ -952,11 +980,14 @@ async function ejecutarBorradoUnidad() {
 // ---- Usuarios (Módulo 2) ----
 const usuarios = ref([])
 const userRoleFilter = ref('')
-const newUser = ref({ nombre: '', apellido: '', cedula: '', email: '', telefono: '', role: '', password: '' })
+const newUser = ref({ nombre: '', apellido: '', cedula: '', tipo_documento: 'cedula', email: '', telefono: '', role: '', password: '' })
 const userError = ref('')
 const userSuccess = ref('')
 const cedulaStatus = ref('') // 'valid', 'invalid', ''
 const cedulaMsg = ref('')
+
+const resetEmailSentMsg = ref('')
+const lastResetEmail = ref('')
 
 const canCreateUser = computed(() => newUser.value.nombre && newUser.value.apellido && newUser.value.cedula && newUser.value.role && cedulaStatus.value === 'valid')
 
@@ -967,10 +998,10 @@ const filteredUsers = computed(() => {
 
 function onCedulaInput() {
   const val = newUser.value.cedula.replace(/[-\s]/g, '')
-  if (val.length < 11) { cedulaStatus.value = ''; cedulaMsg.value = ''; return }
-  const res = validarCedulaDominicana(val)
+  if (!val) { cedulaStatus.value = ''; cedulaMsg.value = ''; return }
+  const res = validarDocumento(newUser.value.tipo_documento, val)
   cedulaStatus.value = res.valida ? 'valid' : 'invalid'
-  cedulaMsg.value = res.valida ? `✓ ${res.formateada}` : res.mensaje
+  cedulaMsg.value = res.valida ? `✓ ${res.formateada || 'Valido'}` : res.mensaje
 }
 
 async function crearUsuario() {
@@ -978,7 +1009,7 @@ async function crearUsuario() {
   try {
     await addUsuario(newUser.value)
     userSuccess.value = 'Usuario registrado exitosamente'
-    newUser.value = { nombre: '', apellido: '', cedula: '', email: '', telefono: '', role: '', password: '' }
+    newUser.value = { nombre: '', apellido: '', cedula: '', tipo_documento: 'cedula', email: '', telefono: '', role: '', password: '' }
     cedulaStatus.value = ''; cedulaMsg.value = ''
     await refreshData()
   } catch (e) { userError.value = e.message }
@@ -1006,11 +1037,18 @@ async function ejecutarBorradoUsuario() {
 
 // Edición de usuario
 const editingUserId = ref(null)
-const editUserData = ref({ nombre: '', apellido: '', email: '', telefono: '' })
+const editUserData = ref({ nombre: '', apellido: '', email: '', telefono: '', cedula: '', tipo_documento: 'cedula' })
 
 function startEditUser(u) {
   editingUserId.value = u.id
-  editUserData.value = { nombre: u.nombre, apellido: u.apellido, email: u.email || '', telefono: u.telefono || '' }
+  editUserData.value = { 
+    nombre: u.nombre, 
+    apellido: u.apellido, 
+    email: u.email || '', 
+    telefono: u.telefono || '',
+    cedula: u.cedula || '',
+    tipo_documento: u.tipo_documento || 'cedula'
+  }
 }
 
 async function guardarEdicionUsuario(id) {
@@ -1021,8 +1059,24 @@ async function guardarEdicionUsuario(id) {
   } catch (e) { alert(e.message) }
 }
 
-function formatCedula(c) {
-  if (!c || c.length !== 11) return c || ''
+async function enviarResetPassword(email) {
+  if (!email) return alert('El usuario no tiene un email configurado.')
+  if (confirm(`¿Enviar enlace seguro de recuperación de contraseña a ${email}?`)) {
+    try {
+      await resetPassword(email)
+      lastResetEmail.value = email
+      resetEmailSentMsg.value = '¡Enlace enviado correctamente!'
+      setTimeout(() => resetEmailSentMsg.value = '', 5000)
+    } catch(e) {
+      alert('Error enviando enlace: ' + e.message)
+    }
+  }
+}
+
+function formatDocumento(c, tipo) {
+  if (!c) return ''
+  if (tipo !== 'cedula' && c.length !== 11) return c.toUpperCase()
+  if (c.length !== 11) return c
   return `${c.substr(0, 3)}-${c.substr(3, 7)}-${c.substr(10, 1)}`
 }
 

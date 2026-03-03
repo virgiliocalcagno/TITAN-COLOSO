@@ -185,9 +185,15 @@ export async function createInvitacion(data) {
     const prefix = condoPrefix[data.condominioId] || 'XX'
     const idQR = `TITAN-${prefix}-${data.unidadNumero}-${timestamp}`
 
+    if (!data.telefono) {
+        throw new Error('El número de teléfono es obligatorio para registrar un visitante.')
+    }
+
     const invitacion = {
         ...data,
         idQR,
+        telefono: data.telefono,
+        nacionalidad: data.nacionalidad || '',
         estatus: 'Pendiente',
         fechaCreacion: new Date().toISOString()
     }
@@ -750,14 +756,22 @@ export let seedAsignaciones = loadFromLocal('asignaciones', [
 ])
 
 // ============================================
-// VALIDACIÓN CÉDULA DOMINICANA
+// VALIDACIÓN DOCUMENTOS DE IDENTIDAD
 // ============================================
 
-export function validarCedulaDominicana(cedula) {
-    // Limpiar formato: quitar guiones, espacios
-    const clean = cedula.replace(/[-\s]/g, '')
+export function validarDocumento(tipo, documento) {
+    if (!documento) return { valida: false, mensaje: 'Documento requerido' }
 
-    // Debe tener 11 dígitos
+    // Limpiar formato: quitar guiones, espacios
+    const clean = documento.replace(/[-\s]/g, '')
+
+    if (tipo !== 'cedula') {
+        // Pasaporte u Otro documento extranjero
+        if (clean.length < 5) return { valida: false, mensaje: 'Documento muy corto' }
+        return { valida: true, mensaje: 'Documento válido', formateada: clean.toUpperCase() }
+    }
+
+    // Validación estricta para Cédula Dominicana
     if (!/^\d{11}$/.test(clean)) {
         return { valida: false, mensaje: 'La cédula debe tener 11 dígitos' }
     }
@@ -799,20 +813,33 @@ export async function getUsuario(id) {
 }
 
 export async function addUsuario(data) {
-    // Validar cédula
-    const validacion = validarCedulaDominicana(data.cedula || '')
+    const tipoDoc = data.tipo_documento || 'cedula'
+    const docInput = data.cedula || ''
+
+    // Validar el documento elegido
+    const validacion = validarDocumento(tipoDoc, docInput)
     if (!validacion.valida) throw new Error(validacion.mensaje)
 
-    // Validar no duplicidad de cédula
-    const cedulaClean = (data.cedula || '').replace(/[-\s]/g, '')
-    const existe = seedUsuarios.find(u => u.cedula.replace(/[-\s]/g, '') === cedulaClean)
-    if (existe) throw new Error('Ya existe un usuario con esta cédula')
+    const cleanDoc = validacion.formateada.replace(/[-\s]/g, '')
+
+    // Validar no duplicidad (buscamos si ya existe alguien con este exacto documento y tipo)
+    const qDoc = query(collection(db, 'usuarios'), where('cedula', '==', cleanDoc))
+    const snap = await getDocs(qDoc)
+    if (!snap.empty && !MOCK_MODE) {
+        throw new Error('Ya existe un usuario con este documento')
+    }
+
+    if (MOCK_MODE) {
+        const existe = seedUsuarios.find(u => u.cedula.replace(/[-\s]/g, '') === cleanDoc)
+        if (existe) throw new Error('Ya existe un usuario con este documento')
+    }
 
     const id = `usr-${Date.now().toString(36)}`
     const nuevo = {
         id,
         ...data,
-        cedula: cedulaClean,
+        tipo_documento: tipoDoc,
+        cedula: cleanDoc, // Guardamos en el mismo campo por compatibilidad anterior
         estado: 'activo',
         fechaCreacion: new Date().toISOString()
     }
@@ -828,13 +855,34 @@ export async function addUsuario(data) {
 }
 
 export async function updateUsuario(id, data) {
+    if (data.cedula || data.tipo_documento) {
+        const uToUpdate = await getUsuario(id)
+        if (!uToUpdate) throw new Error('Usuario no encontrado')
+
+        const tDoc = data.tipo_documento || uToUpdate.tipo_documento || 'cedula'
+        const cDoc = data.cedula || uToUpdate.cedula
+
+        const validacion = validarDocumento(tDoc, cDoc)
+        if (!validacion.valida) throw new Error(validacion.mensaje)
+
+        data.cedula = validacion.formateada.replace(/[-\s]/g, '')
+        data.tipo_documento = tDoc
+
+        // Validar duplicados reales
+        const qDoc = query(collection(db, 'usuarios'), where('cedula', '==', data.cedula))
+        const snap = await getDocs(qDoc)
+        if (!snap.empty && !MOCK_MODE) {
+            const dup = snap.docs.find(d => d.id !== id)
+            if (dup) throw new Error('Ya existe otro usuario con este documento')
+        }
+    }
+
     if (MOCK_MODE) {
         const idx = seedUsuarios.findIndex(u => u.id === id)
         if (idx === -1) throw new Error('Usuario no encontrado')
         if (data.cedula) {
-            const cedulaClean = data.cedula.replace(/[-\s]/g, '')
-            const dup = seedUsuarios.find(u => u.id !== id && u.cedula.replace(/[-\s]/g, '') === cedulaClean)
-            if (dup) throw new Error('Ya existe un usuario con esta cédula')
+            const dup = seedUsuarios.find(u => u.id !== id && u.cedula.replace(/[-\s]/g, '') === data.cedula)
+            if (dup) throw new Error('Ya existe un usuario con este documento')
         }
         seedUsuarios[idx] = { ...seedUsuarios[idx], ...data }
         return seedUsuarios[idx]

@@ -1,7 +1,7 @@
 // Composable: useAuth
 // Estado reactivo del usuario autenticado y su rol
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { loginWithEmail, logout as firebaseLogout, getCurrentUser, onAuthChange } from '../firebase/auth.js'
+import { loginWithEmail, logout as firebaseLogout, getCurrentUser, onAuthChange, resetPassword as firebaseResetPassword } from '../firebase/auth.js'
 
 const user = ref(null)
 const loading = ref(true)
@@ -55,6 +55,19 @@ export function useAuth() {
         user.value = null
     }
 
+    async function resetPassword(email) {
+        error.value = null
+        loading.value = true
+        try {
+            await firebaseResetPassword(email)
+        } catch (e) {
+            error.value = e.message
+            throw e
+        } finally {
+            loading.value = false
+        }
+    }
+
     return {
         user,
         loading,
@@ -68,6 +81,7 @@ export function useAuth() {
         isAdmin,
         isPropertyManager,
         login,
-        logout
+        logout,
+        resetPassword
     }
 }

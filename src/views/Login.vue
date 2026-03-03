@@ -5,12 +5,16 @@ import { useAuth } from '../composables/useAuth.js'
 import { ShieldCheck, Mail, Lock, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-vue-next'
 
 const router = useRouter()
-const { login, error: authError } = useAuth()
-
 const email = ref('propietario@titan.com')
 const password = ref('123456')
 const showPassword = ref(false)
 const isLoading = ref(false)
+
+const resetMode = ref(false)
+const isResetting = ref(false)
+const resetSuccessMsg = ref('')
+
+const { login, resetPassword, error: authError } = useAuth()
 
 const demoAccounts = [
   { label: 'Propietario', email: 'propietario@titan.com', icon: '🏠' },
@@ -27,6 +31,7 @@ function selectDemo(account) {
 
 async function handleLogin() {
   isLoading.value = true
+  resetSuccessMsg.value = ''
   try {
     const user = await login(email.value, password.value)
     if (user.role === 'vigilante') {
@@ -38,6 +43,21 @@ async function handleLogin() {
     // Error is handled by useAuth composable
   } finally {
     isLoading.value = false
+  }
+}
+
+async function handleResetPassword() {
+  if (!email.value) return
+  isResetting.value = true
+  resetSuccessMsg.value = ''
+  try {
+    await resetPassword(email.value)
+    resetSuccessMsg.value = 'Se ha enviado un enlace de recuperación a tu correo.'
+    setTimeout(() => { resetMode.value = false }, 5000)
+  } catch (e) {
+    // handled by authError
+  } finally {
+    isResetting.value = false
   }
 }
 </script>
@@ -62,29 +82,55 @@ async function handleLogin() {
           <input v-model="email" type="email" placeholder="tu@correo.com" class="input-field" @keyup.enter="handleLogin" />
         </div>
 
-        <div class="space-y-1">
-          <label class="text-xs font-semibold text-white/60 uppercase tracking-wider flex items-center gap-2">
-            <Lock class="w-3.5 h-3.5" />Contrasena
-          </label>
-          <div class="relative">
-            <input v-model="password" :type="showPassword ? 'text' : 'password'" placeholder="Tu contrasena" class="input-field pr-10" @keyup.enter="handleLogin" />
-            <button @click="showPassword = !showPassword" class="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors">
-              <component :is="showPassword ? EyeOff : Eye" class="w-4 h-4" />
-            </button>
+        <template v-if="!resetMode">
+          <div class="space-y-1">
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs font-semibold text-white/60 uppercase tracking-wider flex items-center gap-2">
+                <Lock class="w-3.5 h-3.5" />Contrasena
+              </label>
+              <button @click="resetMode = true; authError = null" class="text-xs text-titan-400 hover:text-titan-300 transition-colors">¿Olvidaste tu contraseña?</button>
+            </div>
+            <div class="relative">
+              <input v-model="password" :type="showPassword ? 'text' : 'password'" placeholder="Tu contrasena" class="input-field pr-10" @keyup.enter="handleLogin" />
+              <button @click="showPassword = !showPassword" class="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors">
+                <component :is="showPassword ? EyeOff : Eye" class="w-4 h-4" />
+              </button>
+            </div>
           </div>
-        </div>
+        </template>
+        <template v-else>
+          <p class="text-sm text-white/60">Ingresa tu correo electrónico y te enviaremos instrucciones para restablecer tu contraseña.</p>
+        </template>
 
         <div v-if="authError" class="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20">
           <AlertCircle class="w-4 h-4 text-red-400 flex-shrink-0" />
           <p class="text-sm text-red-300">{{ authError }}</p>
         </div>
+        
+        <div v-if="resetSuccessMsg" class="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+          <CheckCircle class="w-4 h-4 text-emerald-400 flex-shrink-0" />
+          <p class="text-sm text-emerald-300">{{ resetSuccessMsg }}</p>
+        </div>
 
-        <button @click="handleLogin" :disabled="isLoading || !email || !password" class="w-full py-3.5 rounded-xl font-bold text-base transition-all duration-300" :class="!isLoading && email && password ? 'bg-gradient-to-r from-titan-500 to-titan-600 text-white shadow-xl shadow-titan-500/30 hover:shadow-titan-500/50 active:scale-[0.98]' : 'bg-white/5 text-white/20 cursor-not-allowed'">
-          <span v-if="isLoading" class="flex items-center justify-center gap-2">
-            <Loader2 class="w-5 h-5 animate-spin" />Ingresando...
-          </span>
-          <span v-else>Iniciar Sesion</span>
-        </button>
+        <template v-if="!resetMode">
+          <button @click="handleLogin" :disabled="isLoading || !email || !password" class="w-full py-3.5 rounded-xl font-bold text-base transition-all duration-300" :class="!isLoading && email && password ? 'bg-gradient-to-r from-titan-500 to-titan-600 text-white shadow-xl shadow-titan-500/30 hover:shadow-titan-500/50 active:scale-[0.98]' : 'bg-white/5 text-white/20 cursor-not-allowed'">
+            <span v-if="isLoading" class="flex items-center justify-center gap-2">
+              <Loader2 class="w-5 h-5 animate-spin" />Ingresando...
+            </span>
+            <span v-else>Iniciar Sesion</span>
+          </button>
+        </template>
+        <template v-else>
+          <button @click="handleResetPassword" :disabled="isResetting || !email" class="w-full py-3.5 rounded-xl font-bold text-base transition-all duration-300 mb-2" :class="!isResetting && email ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-xl shadow-purple-500/30 hover:shadow-purple-500/50 active:scale-[0.98]' : 'bg-white/5 text-white/20 cursor-not-allowed'">
+            <span v-if="isResetting" class="flex items-center justify-center gap-2">
+              <Loader2 class="w-5 h-5 animate-spin" />Enviando...
+            </span>
+            <span v-else>Enviar Enlace de Recuperación</span>
+          </button>
+          <button @click="resetMode = false; authError = null; resetSuccessMsg = ''" class="w-full py-2.5 rounded-xl font-medium text-sm text-white/50 hover:text-white hover:bg-white/5 transition-all">
+            Volver a Iniciar Sesión
+          </button>
+        </template>
       </div>
 
       <div class="glass-card p-4 space-y-3">
