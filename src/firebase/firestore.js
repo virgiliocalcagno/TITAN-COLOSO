@@ -210,11 +210,14 @@ export async function getInvitacionesByPropietario(propietarioId) {
     if (MOCK_MODE) return seedInvitaciones.filter(i => i.propietarioId === propietarioId)
     const q = query(
         collection(db, 'invitaciones'),
-        where('propietarioId', '==', propietarioId),
-        orderBy('fechaCreacion', 'desc')
+        where('propietarioId', '==', propietarioId)
     )
     const snap = await getDocs(q)
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => {
+        const dateA = a.fechaCreacion || ''
+        const dateB = b.fechaCreacion || ''
+        return dateB.localeCompare(dateA)
+    })
 }
 
 export async function getInvitacionesByUnidad(unidadId) {
@@ -282,9 +285,9 @@ export async function getActividadByCondominio(condominioId) {
         const unidadesIds = seedUnidades.filter(u => u.condominioId === condominioId).map(u => u.codigo_unidad)
         return seedActividad.filter(a => a.condominio === condo.nombre || unidadesIds.includes(a.unidad))
     }
-    const q = query(collection(db, 'actividad'), where('condominioId', '==', condominioId), orderBy('timestamp', 'desc'))
+    const q = query(collection(db, 'actividad'), where('condominioId', '==', condominioId))
     const snap = await getDocs(q)
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
 }
 
 export async function registrarActividad(data) {
