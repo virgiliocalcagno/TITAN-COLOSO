@@ -36,30 +36,54 @@ export async function loginWithEmail(email, password) {
 
     // Firebase mode
     try {
-        // Asegurar que Firestore tenga los datos iniciales si es la primera vez en producción
-        const { seedFirestore } = await import('./firestore.js')
-        const { seedFirestore: runSeed } = await import('./seeder.js')
-        // El seeder solo se ejecuta si la colección está vacía
-        runSeed().catch(e => console.error('📦 Seeding info:', e))
+        // Ejecutar seeder de forma asíncrona pero sin bloquear el flujo principal
+        import('./seeder.js').then(m => {
+            m.seedFirestore().catch(e => console.error('📦 Error en Seeder:', e))
+        })
 
         const credential = await signInWithEmailAndPassword(auth, email, password)
         const profile = await getUserProfile(credential.user.uid)
         return { ...credential.user, ...profile }
     } catch (error) {
+        console.error('🔥 Firebase Auth Error:', error.code, error.message)
+
+        // Error específico: Proveedor no habilitado (400 Bad Request)
+        if (error.code === 'auth/operation-not-allowed') {
+            throw new Error('CONFIGURACIÓN REQUERIDA: Debes habilitar el método "Email/Password" en la consola de Firebase (Authentication > Sign-in method).')
+        }
+
+        // Error específico: API Key inválida o restricciones de dominio
+        if (error.code === 'auth/invalid-api-key' || error.code === 'auth/unauthorized-domain') {
+            throw new Error('ERROR DE CONFIGURACIÓN: La API Key es inválida o el dominio localhost no está autorizado en Firebase.')
+        }
+
         // REPARACIÓN AUTOMÁTICA: Si es un usuario de las semillas y no existe en Auth, lo creamos
-        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found') {
+        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
             const seedUser = seedUsuarios.find(u => u.email === email && u.password === password)
             if (seedUser) {
-                console.log('📦 Usuario semilla detectado. Registrando en Firebase Auth...')
-                const newUser = await registerUser(email, password, seedUser.role, {
-                    nombre: seedUser.nombre,
-                    apellido: seedUser.apellido,
-                    cedula: seedUser.cedula,
-                    telefono: seedUser.telefono
-                })
-                return newUser
+                console.log('📦 Usuario semilla detectado. Intentando registro automático...')
+                try {
+                    const newUser = await registerUser(email, password, seedUser.role, {
+                        nombre: seedUser.nombre,
+                        apellido: seedUser.apellido,
+                        cedula: seedUser.cedula,
+                        telefono: seedUser.telefono
+                    })
+                    return newUser
+                } catch (regError) {
+                    if (regError.code === 'auth/operation-not-allowed') {
+                        throw new Error('CONFIGURACIÓN REQUERIDA: Habilita "Email/Password" en Firebase Console para permitir el acceso.')
+                    }
+                    throw regError
+                }
             }
         }
+
+        // Manejo amigable para errores de conexión
+        if (error.message.includes('network-request-failed')) {
+            throw new Error('ERROR DE RED: No se pudo contactar con los servidores de Firebase. Revisa tu conexión.')
+        }
+
         throw error
     }
 }
@@ -113,8 +137,16 @@ export async function getUserProfile(uid) {
         }
         return null
     }
-    const snap = await getDoc(doc(db, 'usuarios', uid))
-    return snap.exists() ? snap.data() : null
+    try {
+        const snap = await getDoc(doc(db, 'usuarios', uid))
+        return snap.exists() ? snap.data() : null
+    } catch (error) {
+        if (error.code === 'unavailable' || error.message.includes('offline')) {
+            console.error('📡 Firestore está offline o no inicializado.')
+            throw new Error('ERROR DE BASE DE DATOS: Firestore no responde. Asegúrate de haber creado la base de datos "Cloud Firestore" en la consola.')
+        }
+        throw error
+    }
 }
 
 export function onAuthChange(callback) {

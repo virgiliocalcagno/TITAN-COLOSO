@@ -19,8 +19,14 @@ export async function seedFirestore() {
 
     for (const col of colecciones) {
         try {
+            console.log(`🔍 Verificando colección [${col.name}]...`)
             const q = query(collection(db, col.name), limit(1))
-            const snap = await getDocs(q)
+
+            // Timeout de 5 segundos para no colgar la app si Firestore no está activo
+            const snapPromise = getDocs(q)
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_FIREBASE')), 10000))
+
+            const snap = await Promise.race([snapPromise, timeoutPromise])
 
             if (snap.empty) {
                 console.log(`📦 Colección [${col.name}] vacía. Subiendo ${col.data.length} elementos...`)
