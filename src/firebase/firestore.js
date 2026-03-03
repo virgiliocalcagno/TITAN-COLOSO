@@ -435,18 +435,31 @@ export async function deleteAgrupador(id) {
 // ============================================
 
 export async function addUnidad(data) {
-    // Validar no duplicidad
-    const existe = seedUnidades.find(u => u.codigo_unidad === data.codigo_unidad && u.agrupadorId === data.agrupadorId)
-    if (existe) throw new Error(`Unidad ${data.codigo_unidad} ya existe en este agrupador`)
-
-    const id = `u-${Date.now().toString(36)}`
-    const nueva = { id, estado: true, propietarioId: null, ...data }
     if (MOCK_MODE) {
+        // Validar no duplicidad en mock
+        const existe = seedUnidades.find(u => u.codigo_unidad === data.codigo_unidad && u.agrupadorId === data.agrupadorId)
+        if (existe) throw new Error(`Unidad ${data.codigo_unidad} ya existe en este agrupador`)
+
+        const id = `u-${Date.now().toString(36)}`
+        const nueva = { id, estado: true, propietarioId: null, ...data }
         seedUnidades.push(nueva)
         return nueva
     }
-    const docRef = await addDoc(collection(db, 'unidades'), data)
-    return { id: docRef.id, ...data }
+
+    // Validación real en Firestore
+    const q = query(
+        collection(db, 'unidades'),
+        where('agrupadorId', '==', data.agrupadorId),
+        where('codigo_unidad', '==', data.codigo_unidad)
+    )
+    const snap = await getDocs(q)
+    if (!snap.empty) {
+        throw new Error(`Unidad ${data.codigo_unidad} ya existe en este agrupador`)
+    }
+
+    const nueva = { estado: true, propietarioId: null, ...data }
+    const docRef = await addDoc(collection(db, 'unidades'), nueva)
+    return { id: docRef.id, ...nueva }
 }
 
 export async function updateUnidad(id, data) {
@@ -575,17 +588,24 @@ export async function generarUnidadesBatch(config) {
     const preview = generarNomenclaturaPreview(config)
     const creadas = []
 
-    // Primero crear agrupadores si no existen
+    // 1. Obtener agrupadores existentes reales de la base de datos
+    const agrupadoresExistentes = await getAgrupadores(config.condominioId)
+
     for (let i = 0; i < config.agrupadores.length; i++) {
         const agrConfig = config.agrupadores[i]
-        let agrupador = seedAgrupadores.find(a => a.condominioId === config.condominioId && a.nombre === agrConfig.nombre)
+
+        // Buscar agrupador (real o mock, según lo devuelva getAgrupadores)
+        let agrupador = agrupadoresExistentes.find(a => a.nombre === agrConfig.nombre)
+
         if (!agrupador) {
             agrupador = await addAgrupador({
                 condominioId: config.condominioId,
                 nombre: agrConfig.nombre,
                 orden: i + 1
             })
+            agrupadoresExistentes.push(agrupador) // Para caché en esta misma ejecución
         }
+
         // Crear unidades de este agrupador
         const unidadesDeAgrupador = preview.filter(u => u.agrupadorIndex === i)
         for (const u of unidadesDeAgrupador) {
@@ -597,13 +617,13 @@ export async function generarUnidadesBatch(config) {
                 })
                 creadas.push(nueva)
             } catch (e) {
-                // Skip duplicados
-                console.warn('Unidad duplicada:', u.codigo_unidad, e.message)
+                // Skip duplicados (addUnidad ya lanza el Error si detecta duplicidad en DB)
+                console.warn('Omite duplicada/error:', u.codigo_unidad, e.message)
             }
         }
     }
 
-    return { total: creadas.length, unidades: creadas }
+    return { total: creadas.length, creadas }
 }
 
 // ============================================
