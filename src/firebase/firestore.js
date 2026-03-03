@@ -823,15 +823,21 @@ export async function updateUsuario(id, data) {
 }
 
 export async function deleteUsuario(id) {
-    // Verificar que no tenga asignaciones activas
-    const asignaciones = seedAsignaciones.filter(a => a.usuario_id === id)
-    if (asignaciones.length) throw new Error('No se puede eliminar: el usuario tiene unidades asignadas. Revoque las asignaciones primero.')
-
     if (MOCK_MODE) {
+        // En mock quitamos asignaciones primero
+        seedAsignaciones = seedAsignaciones.filter(a => a.usuario_id !== id)
         seedUsuarios = seedUsuarios.filter(u => u.id !== id)
+        saveToLocal('asignaciones', seedAsignaciones)
         saveToLocal('usuarios', seedUsuarios)
         return true
     }
+
+    // 1. Eliminar asignaciones vinculadas a este usuario
+    const qAsig = query(collection(db, 'asignaciones_unidades'), where('usuario_id', '==', id))
+    const snapAsig = await getDocs(qAsig)
+    for (const d of snapAsig.docs) await deleteDoc(d.ref)
+
+    // Finalmente eliminar el documento del usuario
     await deleteDoc(doc(db, 'usuarios', id))
 }
 

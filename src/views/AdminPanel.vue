@@ -377,7 +377,7 @@
                   <button v-if="editingId === u.id" @click="guardarEdicion(u)" class="text-emerald-400 hover:text-emerald-300 p-1"><Check :size="14" /></button>
                   <button v-if="editingId === u.id" @click="editingId = null" class="text-gray-400 hover:text-white p-1"><X :size="14" /></button>
                   <button v-if="editingId !== u.id" @click="iniciarEdicion(u)" class="text-gray-400 hover:text-purple-400 p-1"><Pencil :size="14" /></button>
-                  <button @click="eliminarUnidad(u.id)" class="text-gray-400/50 hover:text-red-400 p-1"><Trash2 :size="14" /></button>
+                  <button @click="confirmarBorradoUnidad(u)" class="text-gray-400/50 hover:text-red-400 p-1"><Trash2 :size="14" /></button>
                 </div>
               </td>
             </tr>
@@ -668,6 +668,93 @@
         <div v-if="!asignaciones.length" class="text-center py-8 text-gray-500 text-sm">No hay asignaciones creadas</div>
       </div>
     </div>
+
+    <!-- Modales de Confirmación de Eliminación Forzada en Cascada -->
+
+    <!-- Modal Usuario -->
+    <div v-if="showDeleteUserModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div class="bg-gray-900 border border-red-900/50 rounded-3xl w-full max-w-md overflow-hidden shadow-[0_0_40px_-10px_rgba(220,38,38,0.2)] animate-in fade-in zoom-in duration-200">
+        <div class="p-6">
+          <div class="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4 border border-red-500/20">
+            <UserPlus :size="32" class="text-red-500" />
+            <Trash2 class="absolute text-red-400/50 -right-2 -bottom-2" :size="20"/>
+          </div>
+          <h2 class="text-xl font-bold text-white text-center mb-2">Eliminar Usuario Definitivamente</h2>
+          <p class="text-gray-400 text-center text-sm mb-6">
+            Estas a punto de eliminar a <span class="text-white font-bold">{{ selectedUserToDelete?.nombre }} {{ selectedUserToDelete?.apellido }}</span>.
+          </p>
+
+          <div v-if="userToDeleteAsignacionesCount > 0" class="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 mb-6">
+            <h3 class="text-xs font-bold text-red-400 uppercase tracking-widest flex items-center gap-2 mb-2">
+              <AlertTriangle :size="14" /> Impacto en Cascada
+            </h3>
+            <p class="text-sm text-red-200/80 leading-relaxed font-medium">
+              Este usuario tiene <span class="text-white font-bold bg-red-500/20 px-1 py-0.5 rounded">{{ userToDeleteAsignacionesCount }}</span> asignaciones activas en unidades.
+            </p>
+            <p class="text-xs text-red-300/60 mt-2">
+              Al confirmar, el sistema automáticamente desvinculará a este usuario de todas sus unidades y borrará su registro de forma irreversible.
+            </p>
+          </div>
+          <div v-else class="bg-gray-800/50 border border-gray-700/50 rounded-2xl p-4 mb-6 text-center">
+            <p class="text-sm text-gray-400">Este usuario no tiene asignaciones activas. La eliminación será limpia.</p>
+          </div>
+
+          <div class="flex flex-col gap-3">
+            <button @click="ejecutarBorradoUsuario"
+              class="w-full bg-red-600 hover:bg-red-500 text-white py-3 rounded-2xl font-bold transition-all shadow-lg flex items-center justify-center gap-2">
+              <Trash2 :size="18" /> {{ userToDeleteAsignacionesCount > 0 ? 'Forzar Eliminación en Cascada' : 'Confirmar Eliminación' }}
+            </button>
+            <button @click="showDeleteUserModal = false" 
+              class="w-full bg-transparent hover:bg-gray-800 text-gray-400 py-3 rounded-2xl font-medium transition-all">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Unidad -->
+    <div v-if="showDeleteUnidadModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div class="bg-gray-900 border border-red-900/50 rounded-3xl w-full max-w-md overflow-hidden shadow-[0_0_40px_-10px_rgba(220,38,38,0.2)] animate-in fade-in zoom-in duration-200">
+        <div class="p-6">
+          <div class="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4 border border-red-500/20">
+            <Building2 :size="32" class="text-red-500" />
+            <Trash2 class="absolute text-red-400/50 -right-2 -bottom-2" :size="20"/>
+          </div>
+          <h2 class="text-xl font-bold text-white text-center mb-2">Eliminar Unidad Lógica</h2>
+          <p class="text-gray-400 text-center text-sm mb-6">
+            Vas a eliminar la unidad <span class="text-white font-bold">{{ selectedUnidadToDelete?.agrupadorNombre }} · {{ selectedUnidadToDelete?.codigo_unidad }}</span>.
+          </p>
+
+          <div v-if="unidadToDeleteAsignacionesCount > 0" class="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 mb-6">
+            <h3 class="text-xs font-bold text-red-400 uppercase tracking-widest flex items-center gap-2 mb-2">
+              <AlertTriangle :size="14" /> Impacto en Cascada
+            </h3>
+            <p class="text-sm text-red-200/80 leading-relaxed font-medium">
+              Hay <span class="text-white font-bold bg-red-500/20 px-1 py-0.5 rounded">{{ unidadToDeleteAsignacionesCount }}</span> personas (propietarios/inquilinos/etc) asignadas a esta unidad.
+            </p>
+            <p class="text-xs text-red-300/60 mt-2">
+              Al confirmar, el sistema automáticamente revocará todas las asignaciones vinculadas y borrará la historia de acceso e invitaciones relativas a esta unidad, para luego destruirla permanentemente.
+            </p>
+          </div>
+          <div v-else class="bg-gray-800/50 border border-gray-700/50 rounded-2xl p-4 mb-6 text-center">
+            <p class="text-sm text-gray-400">Esta unidad está vacía. La eliminación será limpia.</p>
+          </div>
+
+          <div class="flex flex-col gap-3">
+            <button @click="ejecutarBorradoUnidad"
+              class="w-full bg-red-600 hover:bg-red-500 text-white py-3 rounded-2xl font-bold transition-all shadow-lg flex items-center justify-center gap-2">
+              <Trash2 :size="18" /> {{ unidadToDeleteAsignacionesCount > 0 ? 'Destruir Unidad y Asignaciones' : 'Confirmar Eliminación' }}
+            </button>
+            <button @click="showDeleteUnidadModal = false" 
+              class="w-full bg-transparent hover:bg-gray-800 text-gray-400 py-3 rounded-2xl font-medium transition-all">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -842,7 +929,25 @@ async function guardarEdicion(u) {
   } catch (e) { alert(e.message) }
 }
 
-async function eliminarUnidad(id) { await deleteUnidad(id); await refreshData() }
+const showDeleteUnidadModal = ref(false)
+const selectedUnidadToDelete = ref(null)
+const unidadToDeleteAsignacionesCount = ref(0)
+
+function confirmarBorradoUnidad(unidad) {
+  selectedUnidadToDelete.value = unidad
+  unidadToDeleteAsignacionesCount.value = asignaciones.value.filter(a => a.unidad_id === unidad.id).length
+  showDeleteUnidadModal.value = true
+}
+
+async function ejecutarBorradoUnidad() {
+  try {
+    await deleteUnidad(selectedUnidadToDelete.value.id)
+    showDeleteUnidadModal.value = false
+    await refreshData()
+  } catch (e) {
+    alert(e.message)
+  }
+}
 
 // ---- Usuarios (Módulo 2) ----
 const usuarios = ref([])
@@ -879,8 +984,24 @@ async function crearUsuario() {
   } catch (e) { userError.value = e.message }
 }
 
-async function eliminarUsuarioHandler(id) {
-  try { await deleteUsuario(id); await refreshData() } catch (e) { alert(e.message) }
+const showDeleteUserModal = ref(false)
+const selectedUserToDelete = ref(null)
+const userToDeleteAsignacionesCount = ref(0)
+
+function confirmarBorradoUsuario(usuario) {
+  selectedUserToDelete.value = usuario
+  userToDeleteAsignacionesCount.value = asignaciones.value.filter(a => a.usuario_id === usuario.id).length
+  showDeleteUserModal.value = true
+}
+
+async function ejecutarBorradoUsuario() {
+  try {
+    await deleteUsuario(selectedUserToDelete.value.id)
+    showDeleteUserModal.value = false
+    await refreshData()
+  } catch (e) {
+    alert(e.message)
+  }
 }
 
 // Edición de usuario
