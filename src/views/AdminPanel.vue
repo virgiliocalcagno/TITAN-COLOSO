@@ -72,10 +72,13 @@
             </div>
           </div>
           <div class="flex items-center gap-2">
+            <button @click="verBitacoraCondo(condo)" class="text-xs bg-gray-700/50 hover:bg-gray-700 text-gray-300 px-2 py-1 rounded-lg border border-gray-600/30 flex items-center gap-1 transition-all">
+              <List :size="12" /> Bitacora
+            </button>
             <span class="text-xs bg-emerald-500/20 text-emerald-300 px-2 py-1 rounded-lg">
               {{ getUnidadCount(condo.id) }} uds
             </span>
-            <button @click="eliminarCondominio(condo.id)" class="text-red-400/60 hover:text-red-400 transition-colors p-1">
+            <button @click="confirmarBorradoCondo(condo)" class="text-red-400/60 hover:text-red-400 transition-colors p-1">
               <Trash2 :size="16" />
             </button>
           </div>
@@ -85,6 +88,95 @@
             class="text-xs bg-gray-900/60 text-gray-300 px-2 py-1 rounded-md border border-gray-700/30">
             {{ agr.nombre }}
           </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Confirmación Crítica / Bitácora -->
+    <div v-if="showDeleteModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div class="bg-gray-900 border border-gray-800 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
+        <div class="p-6">
+          <div class="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle :size="32" class="text-red-500" />
+          </div>
+          <h2 class="text-xl font-bold text-white text-center mb-2">¿Eliminar Condominio?</h2>
+          <p class="text-gray-400 text-center text-sm mb-6">
+            Estas intentando eliminar <span class="text-white font-bold">{{ selectedCondo?.nombre }}</span>.
+            Esta accion es irreversible.
+          </p>
+
+          <!-- Detalle de Actividad si existe -->
+          <div v-if="logsCondo.length" class="bg-gray-800/50 border border-gray-700/50 rounded-2xl p-4 mb-6">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-xs font-bold text-red-400 uppercase tracking-widest flex items-center gap-2">
+                <History :size="14" /> Registros Detectados
+              </h3>
+              <span class="text-[10px] bg-red-500/20 text-red-300 px-2 py-0.5 rounded-full">{{ logsCondo.length }}</span>
+            </div>
+            <div class="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
+              <div v-for="log in logsCondo" :key="log.id" class="text-[11px] border-l-2 border-red-500/30 pl-3 py-1">
+                <p class="text-gray-300 font-medium">{{ log.accion }}</p>
+                <p class="text-gray-500">{{ log.visitante }} · {{ log.unidad }} · {{ log.hora || 'Reciente' }}</p>
+              </div>
+            </div>
+            <p class="text-[10px] text-amber-400/80 mt-3 leading-relaxed">
+              ⚠️ Al forzar la eliminacion, se borraran permanentemente TODAS las unidades, agrupadores y registros de este condominio.
+            </p>
+          </div>
+
+          <div class="flex flex-col gap-3">
+            <button @click="ejecutarBorrado(true)" v-if="logsCondo.length"
+              class="w-full bg-red-600 hover:bg-red-500 text-white py-3 rounded-2xl font-bold transition-all shadow-lg shadow-red-600/20 flex items-center justify-center gap-2">
+              <Trash2 :size="18" /> Forzar Eliminación Total
+            </button>
+            <button @click="ejecutarBorrado(false)" v-else
+              class="w-full bg-gray-100 hover:bg-white text-gray-900 py-3 rounded-2xl font-bold transition-all shadow-lg flex items-center justify-center gap-2">
+              Confirmar Eliminación
+            </button>
+            <button @click="showDeleteModal = false" 
+              class="w-full bg-transparent hover:bg-gray-800 text-gray-400 py-3 rounded-2xl font-medium transition-all">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drawer: Ver Bitácora (Solo lectura) -->
+    <div v-if="showLogDrawer" class="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" @click.self="showLogDrawer = false">
+      <div class="bg-gray-900 w-full max-w-lg rounded-t-[32px] p-6 animate-in slide-in-from-bottom duration-300 shadow-2xl border-t border-gray-800">
+        <div class="w-12 h-1.5 bg-gray-700 rounded-full mx-auto mb-6"></div>
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h2 class="text-xl font-bold text-white">Bitácora de Acceso</h2>
+            <p class="text-gray-400 text-sm">{{ selectedCondo?.nombre }}</p>
+          </div>
+          <button @click="showLogDrawer = false" class="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white">
+            <X :size="20" />
+          </button>
+        </div>
+
+        <div class="space-y-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar pb-8">
+          <div v-for="log in logsCondo" :key="log.id" 
+            class="bg-gray-800/40 border border-gray-700/30 rounded-2xl p-4 flex items-center gap-4 transition-all hover:border-gray-600/50">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center" 
+              :class="log.tipo === 'entrada' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-blue-500/10 text-blue-400'">
+              <component :is="log.tipo === 'entrada' ? LogIn : FileText" :size="20" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between gap-2">
+                <p class="text-white font-medium text-sm truncate">{{ log.visitante }}</p>
+                <span class="text-[10px] py-0.5 px-2 rounded-full bg-gray-900/50 text-gray-400 uppercase font-bold">{{ log.hora }}</span>
+              </div>
+              <p class="text-gray-400 text-xs">{{ log.accion }} · Unidad {{ log.unidad }}</p>
+            </div>
+          </div>
+          <div v-if="!logsCondo.length" class="text-center py-12">
+            <div class="w-20 h-20 bg-gray-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <History :size="32" class="text-gray-600" />
+            </div>
+            <p class="text-gray-500">No hay registros de actividad en este condominio</p>
+          </div>
         </div>
       </div>
     </div>
@@ -580,15 +672,18 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { Building2, Plus, Trash2, Search, Check, X, Pencil, Loader2, CheckCircle, LayoutGrid, Wand2, List, Users, UserPlus, Link } from 'lucide-vue-next'
+import { 
+  Building2, Plus, Trash2, Search, Check, X, Pencil, Loader2, CheckCircle, 
+  LayoutGrid, Wand2, List, Users, UserPlus, Link, AlertTriangle, History, LogIn, FileText
+} from 'lucide-vue-next'
 import {
   getCondominios, getUnidades, getAgrupadores, getAdminStats,
   addCondominio, deleteCondominio, deleteUnidad, updateUnidad,
   generarNomenclaturaPreview, generarUnidadesBatch,
   getUsuarios, addUsuario, updateUsuario, deleteUsuario, buscarUsuarios,
   validarCedulaDominicana,
-  getAsignaciones, addAsignacion, removeAsignacion, editarAsignacion
+  getAsignaciones, addAsignacion, removeAsignacion, editarAsignacion,
+  getActividadByCondominio
 } from '../firebase/firestore.js'
 
 // State
@@ -619,6 +714,33 @@ async function crearCondominio() {
     newCondo.value = { nombre: '', ubicacion: '', tipo_agrupador: '', config_nomenclatura: {} }
     await refreshData()
   } catch (e) { errorMsg.value = e.message }
+}
+
+const showDeleteModal = ref(false)
+const showLogDrawer = ref(false)
+const selectedCondo = ref(null)
+const logsCondo = ref([])
+
+async function verBitacoraCondo(condo) {
+  selectedCondo.value = condo
+  logsCondo.value = await getActividadByCondominio(condo.id)
+  showLogDrawer.value = true
+}
+
+async function confirmarBorradoCondo(condo) {
+  selectedCondo.value = condo
+  logsCondo.value = await getActividadByCondominio(condo.id)
+  showDeleteModal.value = true
+}
+
+async function ejecutarBorrado(force = false) {
+  try {
+    await deleteCondominio(selectedCondo.value.id, force)
+    showDeleteModal.value = false
+    await refreshData()
+  } catch (e) {
+    alert(e.message)
+  }
 }
 
 async function eliminarCondominio(id) {

@@ -274,6 +274,19 @@ export async function getActividadReciente(limit = 10) {
     return snap.docs.map(d => ({ id: d.id, ...d.data() })).slice(0, limit)
 }
 
+export async function getActividadByCondominio(condominioId) {
+    if (MOCK_MODE) {
+        // En mock buscamos por nombre o por unidades vinculadas
+        const condo = seedCondominios.find(c => c.id === condominioId)
+        if (!condo) return []
+        const unidadesIds = seedUnidades.filter(u => u.condominioId === condominioId).map(u => u.codigo_unidad)
+        return seedActividad.filter(a => a.condominio === condo.nombre || unidadesIds.includes(a.unidad))
+    }
+    const q = query(collection(db, 'actividad'), where('condominioId', '==', condominioId), orderBy('timestamp', 'desc'))
+    const snap = await getDocs(q)
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+}
+
 export async function registrarActividad(data) {
     if (MOCK_MODE) {
         seedActividad.unshift({ id: Date.now(), ...data, timestamp: Date.now() })
@@ -309,19 +322,71 @@ export async function updateCondominio(id, data) {
     await updateDoc(doc(db, 'condominios', id), data)
 }
 
-export async function deleteCondominio(id) {
-    // Solo bloquear si tiene actividad de acceso real (bitácora), no invitaciones pendientes
-    const tieneActividad = seedActividad.some(a => {
-        const condoMatch = seedUnidades.filter(u => u.condominioId === id)
-        return condoMatch.some(u => a.unidad === u.codigo_unidad)
-    })
-    if (tieneActividad) throw new Error('No se puede eliminar: tiene registros de acceso en la bitácora')
+export async function deleteCondominio(id, force = false) {
     if (MOCK_MODE) {
+        // Simular chequeo de actividad
+        const condo = seedCondominios.find(c => c.id === id)
+        const unidadesDelCondo = seedUnidades.filter(u => u.condominioId === id).map(u => u.codigo_unidad)
+        const tieneActividad = seedActividad.some(a => a.condominio === condo?.nombre || unidadesDelCondo.includes(a.unidad))
+
+        if (tieneActividad && !force) {
+            throw new Error('No se puede eliminar: tiene registros de acceso en la bitácora')
+        }
+
+        if (force) {
+            // Limpieza en cascada (Mock)
+            seedActividad = seedActividad.filter(a => a.condominio !== condo?.nombre && !unidadesDelCondo.includes(a.unidad))
+            seedAsignaciones = seedAsignaciones.filter(asig => asig.condominio_id !== id)
+            seedInvitaciones = seedInvitaciones.filter(inv => inv.condominioId !== id)
+        }
+
         seedUnidades = seedUnidades.filter(u => u.condominioId !== id)
         seedAgrupadores = seedAgrupadores.filter(a => a.condominioId !== id)
         seedCondominios = seedCondominios.filter(c => c.id !== id)
+
+        saveToLocal('condominios', seedCondominios)
+        saveToLocal('unidades', seedUnidades)
+        saveToLocal('agrupadores', seedAgrupadores)
+        saveToLocal('asignaciones', seedAsignaciones)
+        saveToLocal('invitaciones', seedInvitaciones)
         return true
     }
+
+    // --- MODO REAL FIRESTORE ---
+    if (!force) {
+        const q = query(collection(db, 'actividad'), where('condominioId', '==', id))
+        const snap = await getDocs(q)
+        if (!snap.empty) {
+            throw new Error('No se puede eliminar: tiene registros de acceso en la bitácora')
+        }
+    } else {
+        // 1. Eliminar Actividad
+        const qAct = query(collection(db, 'actividad'), where('condominioId', '==', id))
+        const snapAct = await getDocs(qAct)
+        for (const d of snapAct.docs) await deleteDoc(d.ref)
+
+        // 2. Eliminar Invitaciones
+        const qInv = query(collection(db, 'invitaciones'), where('condominioId', '==', id))
+        const snapInv = await getDocs(qInv)
+        for (const d of snapInv.docs) await deleteDoc(d.ref)
+
+        // 3. Eliminar Asignaciones
+        const qAsig = query(collection(db, 'asignaciones_unidades'), where('condominio_id', '==', id))
+        const snapAsig = await getDocs(qAsig)
+        for (const d of snapAsig.docs) await deleteDoc(d.ref)
+
+        // 4. Eliminar Unidades
+        const qUni = query(collection(db, 'unidades'), where('condominioId', '==', id))
+        const snapUni = await getDocs(qUni)
+        for (const d of snapUni.docs) await deleteDoc(d.ref)
+
+        // 5. Eliminar Agrupadores
+        const qAgr = query(collection(db, 'agrupadores'), where('condominioId', '==', id))
+        const snapAgr = await getDocs(qAgr)
+        for (const d of snapAgr.docs) await deleteDoc(d.ref)
+    }
+
+    // Finalmente eliminar el condominio
     await deleteDoc(doc(db, 'condominios', id))
 }
 
