@@ -49,27 +49,27 @@ const router = createRouter({
 })
 
 // Navigation Guard
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, from) => {
     const user = getCurrentUser()
 
     // If route requires auth and user is not logged in
     if (to.meta.requiresAuth && !user) {
-        return next({ name: 'login' })
+        return { name: 'login' }
     }
 
     // If user is logged in and tries to access login page
     if (to.name === 'login' && user) {
         // Redirect based on role
         if (user.role === 'vigilante') {
-            return next({ name: 'escaner' })
+            return { name: 'escaner' }
         }
         if (user.role === 'admin') {
-            return next({ name: 'admin' })
+            return { name: 'admin' }
         }
         if (user.role === 'property_manager') {
-            return next({ name: 'dashboard' })
+            return { name: 'dashboard' }
         }
-        return next({ name: 'dashboard' })
+        return { name: 'dashboard' }
     }
 
     // Check role-based access
@@ -77,13 +77,13 @@ router.beforeEach((to, from, next) => {
         if (!to.meta.roles.includes(user.role)) {
             // Redirect to their default page
             if (user.role === 'vigilante') {
-                return next({ name: 'escaner' })
+                return { name: 'escaner' }
             }
-            return next({ name: 'dashboard' })
+            return { name: 'dashboard' }
         }
     }
 
-    next()
+    return true
 })
 
 export default router

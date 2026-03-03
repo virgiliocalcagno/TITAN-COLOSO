@@ -5,12 +5,20 @@ import { getFirestore } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
 
 const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "PENDIENTE",
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "titan-coloso.firebaseapp.com",
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "titan-coloso",
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "titan-coloso.firebasestorage.app",
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_ID || "PENDIENTE",
-    appId: import.meta.env.VITE_FIREBASE_APP_ID || "PENDIENTE"
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL
+}
+
+// Diagnóstico para el usuario
+if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'PENDIENTE') {
+    console.warn('⚠️ ADVERTENCIA: La API Key de Firebase no se ha cargado correctamente desde el archivo .env')
+} else {
+    console.log('✅ Firebase Config cargada exitosamente.')
 }
 
 const app = initializeApp(firebaseConfig)
