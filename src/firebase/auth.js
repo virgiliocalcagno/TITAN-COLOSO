@@ -15,6 +15,7 @@ import { seedFirestore } from './seeder.js'
 const MOCK_MODE = false // 🚀 ACTIVADO MODO PRODUCCIÓN REAL
 
 let currentMockUser = null
+let currentUserProfile = null
 
 // ============================================
 // FUNCIONES DE AUTH
@@ -43,6 +44,7 @@ export async function loginWithEmail(email, password) {
 
         const credential = await signInWithEmailAndPassword(auth, email, password)
         const profile = await getUserProfile(credential.user.uid)
+        currentUserProfile = profile
         return { ...credential.user, ...profile }
     } catch (error) {
         console.error('🔥 Firebase Auth Error:', error.code, error.message)
@@ -124,7 +126,11 @@ export function getCurrentUser() {
         }
         return null
     }
-    return auth.currentUser
+    const user = auth.currentUser
+    if (user && currentUserProfile) {
+        return { ...user, ...currentUserProfile, id: user.uid }
+    }
+    return user
 }
 
 export async function getUserProfile(uid) {
@@ -166,8 +172,10 @@ export function onAuthChange(callback) {
     return onAuthStateChanged(auth, async (user) => {
         if (user) {
             const profile = await getUserProfile(user.uid)
+            currentUserProfile = profile
             callback({ ...user, ...profile })
         } else {
+            currentUserProfile = null
             callback(null)
         }
     })

@@ -54,32 +54,27 @@ router.beforeEach((to, from) => {
 
     // If route requires auth and user is not logged in
     if (to.meta.requiresAuth && !user) {
+        if (to.name === 'login') return true
         return { name: 'login' }
     }
 
     // If user is logged in and tries to access login page
     if (to.name === 'login' && user) {
-        // Redirect based on role
-        if (user.role === 'vigilante') {
-            return { name: 'escaner' }
-        }
-        if (user.role === 'admin') {
-            return { name: 'admin' }
-        }
-        if (user.role === 'property_manager') {
-            return { name: 'dashboard' }
-        }
-        return { name: 'dashboard' }
+        const role = user.role || 'propietario'
+        const target = role === 'vigilante' ? 'escaner' : (role === 'admin' ? 'admin' : 'dashboard')
+        return { name: target }
     }
 
     // Check role-based access
     if (to.meta.roles && user) {
+        // Si el rol aún no carga, permitimos por ahora para evitar loops
+        if (!user.role) return true
+
         if (!to.meta.roles.includes(user.role)) {
-            // Redirect to their default page
-            if (user.role === 'vigilante') {
-                return { name: 'escaner' }
-            }
-            return { name: 'dashboard' }
+            const target = user.role === 'vigilante' ? 'escaner' : 'dashboard'
+            // Evitar loop infinito si ya vamos a la ruta destino
+            if (to.name === target) return true
+            return { name: target }
         }
     }
 
