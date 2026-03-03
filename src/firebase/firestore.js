@@ -603,6 +603,18 @@ export let seedUsuarios = loadFromLocal('usuarios', [
         role: 'property_manager',
         estado: 'activo',
         fechaCreacion: '2026-02-15T09:00:00'
+    },
+    {
+        id: 'admin-god',
+        nombre: 'God',
+        apellido: 'Admin',
+        cedula: '99999999999',
+        email: 'god@titan.com',
+        password: 'godpassword777',
+        telefono: '+1 (809) 555-7777',
+        role: 'admin',
+        estado: 'activo',
+        fechaCreacion: '2026-03-02T00:00:00'
     }
 ])
 
