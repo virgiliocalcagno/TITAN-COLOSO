@@ -672,6 +672,7 @@
 </template>
 
 <script setup>
+import { ref, computed, onMounted } from 'vue'
 import { 
   Building2, Plus, Trash2, Search, Check, X, Pencil, Loader2, CheckCircle, 
   LayoutGrid, Wand2, List, Users, UserPlus, Link, AlertTriangle, History, LogIn, FileText
