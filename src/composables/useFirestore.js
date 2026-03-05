@@ -50,7 +50,7 @@ export function useFirestore() {
     const deleteUsuario = (id) => execute(firestoreService.deleteUsuario, id)
     const buscarUsuarioPorCedula = (cedula) => execute(firestoreService.buscarUsuarioPorCedula, cedula)
     const buscarUsuarios = (termino) => execute(firestoreService.buscarUsuarios, termino)
-    const validarCedulaDominicana = (cedula) => firestoreService.validarCedulaDominicana(cedula)
+    const validarDocumento = (tipo, documento) => firestoreService.validarDocumento(tipo, documento)
 
     // Asignaciones (Módulo 2)
     const getAsignaciones = () => execute(firestoreService.getAsignaciones)
@@ -97,7 +97,7 @@ export function useFirestore() {
         deleteUsuario,
         buscarUsuarioPorCedula,
         buscarUsuarios,
-        validarCedulaDominicana,
+        validarDocumento,
         // Asignaciones
         getAsignaciones,
         getAsignacionesByUsuario,

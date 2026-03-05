@@ -623,12 +623,27 @@
       </div>
 
       <!-- Lista de asignaciones activas -->
-      <h3 class="text-sm font-semibold text-white/60 uppercase tracking-wider px-1">Asignaciones Activas ({{ asignaciones.length }})</h3>
+      <div class="flex items-center justify-between px-1 mb-2 mt-4">
+        <h3 class="text-sm font-semibold text-white/60 uppercase tracking-wider">Asignaciones Activas ({{ asignacionesFiltradas.length }})</h3>
+      </div>
+      
+      <!-- Filtros -->
+      <div class="grid grid-cols-2 gap-2 mb-3">
+        <select v-model="filtroAsigCondominio" @change="onFiltroAsigCondoChange" class="bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none">
+          <option value="">Todos los Condominios</option>
+          <option v-for="c in condominios" :key="c.id" :value="c.id">{{ c.nombre }}</option>
+        </select>
+        <select v-model="filtroAsigUnidad" :disabled="!filtroAsigCondominio" class="bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none disabled:opacity-50">
+          <option value="">Todas las Unidades</option>
+          <option v-for="u in unidadesFiltroAsignaciones" :key="u.id" :value="u.id">{{ u.agrupadorNombre }} · {{ u.codigo_unidad }}</option>
+        </select>
+      </div>
+
       <div class="space-y-2">
-        <div v-for="a in asignaciones" :key="a.id"
-          class="bg-gray-800/50 rounded-xl border border-gray-700/40 p-3">
+        <div v-for="a in asignacionesFiltradas" :key="a.id"
+          class="bg-gray-800/50 rounded-xl border border-gray-700/40 overflow-hidden transition-all duration-300">
           <!-- Editing mode -->
-          <div v-if="editingAsigId === a.id" class="space-y-2">
+          <div v-if="editingAsigId === a.id" class="p-3 space-y-2">
             <p class="text-white text-sm font-medium">{{ a.usuario_nombre }}</p>
             <div class="grid grid-cols-2 gap-2">
               <div>
@@ -664,31 +679,58 @@
               <button @click="editingAsigId = null" class="flex-1 py-2 rounded-lg text-xs font-medium bg-gray-700 text-gray-300 hover:bg-gray-600 transition-all">Cancelar</button>
             </div>
           </div>
-          <!-- View mode -->
-          <div v-else class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl flex items-center justify-center"
-              :class="rolBadgeColor(a.rol_vinculado)">
-              <span class="text-sm">{{ rolIcon(a.rol_vinculado) }}</span>
+          
+          <!-- View mode (Acordeón) -->
+          <div v-else class="cursor-pointer select-none" @click="toggleAsig(a.id)">
+            <!-- Minimized View (Header) -->
+            <div class="p-3 flex items-center justify-between hover:bg-gray-700/20 transition-colors">
+              <div class="flex items-center gap-3 flex-1 min-w-0">
+                <div class="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center" :class="rolBadgeColor(a.rol_vinculado)">
+                  <span class="text-sm">{{ rolIcon(a.rol_vinculado) }}</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-0.5">
+                    <p class="text-white text-sm font-semibold truncate">{{ a.condominio_nombre }}</p>
+                    <span class="px-1.5 py-0.5 rounded text-[9px] font-bold" :class="rolBadgeColor(a.rol_vinculado)">{{ a.rol_vinculado }}</span>
+                  </div>
+                  <p class="text-gray-400 text-xs truncate">Unidad: <span class="text-white font-medium">{{ a.agrupador_nombre }} · {{ a.unidad_codigo }}</span></p>
+                </div>
+              </div>
+              <ChevronDown :class="expandedAsigId === a.id ? 'rotate-180 text-amber-500' : 'text-gray-500'" class="w-5 h-5 flex-shrink-0 transition-transform duration-300" />
             </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-white text-sm font-medium truncate">{{ a.usuario_nombre }}</p>
-              <p class="text-gray-400 text-[11px]">{{ a.condominio_nombre }} · {{ a.agrupador_nombre }} · {{ a.unidad_codigo }}</p>
-              <p class="text-gray-500 text-[10px]">
-                <span class="px-1.5 py-0.5 rounded text-[9px] font-semibold mr-1" :class="rolBadgeColor(a.rol_vinculado)">{{ a.rol_vinculado }}</span>
-                {{ a.fecha_inicio }}{{ a.fecha_fin ? ' → ' + a.fecha_fin : ' (permanente)' }}
-              </p>
-            </div>
-            <div class="flex gap-1">
-              <button @click="startEditAsig(a)" class="text-cyan-400/40 hover:text-cyan-400 transition-colors p-1" title="Editar">
-                <Pencil :size="14" />
-              </button>
-              <button @click="revocarAsignacion(a.id)" class="text-red-400/50 hover:text-red-400 transition-colors p-1" title="Revocar">
-                <X :size="16" />
-              </button>
+
+            <!-- Expanded View (Body) -->
+            <div v-show="expandedAsigId === a.id" class="px-3 pb-3 pt-1 border-t border-gray-700/30 bg-gray-900/20">
+              <div class="mt-2 bg-gray-800/80 rounded-lg p-3 border border-gray-700/50">
+                <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Residente / Titular</p>
+                <p class="text-white font-medium flex items-center gap-2">
+                  <User class="w-4 h-4 text-gray-400" /> {{ a.usuario_nombre || 'Usuario Registrado Desconocido' }}
+                </p>
+              </div>
+              
+              <div class="grid grid-cols-2 gap-2 mt-2">
+                <div class="bg-gray-800/80 rounded-lg p-2.5 border border-gray-700/50">
+                  <p class="text-[10px] text-gray-500 uppercase mb-0.5">Check-in</p>
+                  <p class="text-white text-xs font-medium">{{ a.fecha_inicio || 'Permanente' }}</p>
+                </div>
+                <div class="bg-gray-800/80 rounded-lg p-2.5 border border-gray-700/50">
+                  <p class="text-[10px] text-gray-500 uppercase mb-0.5" :class="rolRequiereFechas(a.rol_vinculado) ? 'text-amber-400/80' : ''">Check-out</p>
+                  <p class="text-xs font-medium" :class="a.fecha_fin ? 'text-white' : 'text-emerald-400'">{{ a.fecha_fin || 'Sin límite' }}</p>
+                </div>
+              </div>
+
+              <div class="flex gap-2 mt-3 pt-3 border-t border-gray-700/30">
+                <button @click.stop="startEditAsig(a)" class="flex-1 py-2.5 rounded-lg text-xs font-medium bg-gray-700/50 text-white hover:bg-cyan-600 hover:text-white border border-gray-600/50 transition-all flex items-center justify-center gap-1.5">
+                  <Pencil :size="14" /> Editar
+                </button>
+                <button @click.stop="revocarAsignacion(a.id)" class="flex-1 py-2.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white border border-red-500/20 transition-all flex items-center justify-center gap-1.5">
+                  <X :size="16" /> Revocar
+                </button>
+              </div>
             </div>
           </div>
         </div>
-        <div v-if="!asignaciones.length" class="text-center py-8 text-gray-500 text-sm">No hay asignaciones creadas</div>
+        <div v-if="!asignacionesFiltradas.length" class="text-center py-8 text-gray-500 text-sm">No se encontraron asignaciones.</div>
       </div>
     </div>
 
@@ -787,7 +829,7 @@ import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth.js'
 import { 
   Building2, Plus, Trash2, Search, Check, X, Pencil, Loader2, CheckCircle, 
-  LayoutGrid, Wand2, List, Users, UserPlus, Link, AlertTriangle, History, LogIn, FileText, Mail
+  LayoutGrid, Wand2, List, Users, UserPlus, Link, AlertTriangle, History, LogIn, FileText, Mail, ChevronDown, User
 } from 'lucide-vue-next'
 import {
   getCondominios, getUnidades, getAgrupadores, getAdminStats,
@@ -1099,6 +1141,39 @@ function rolIcon(rol) {
 }
 
 const asignaciones = ref([])
+
+const filtroAsigCondominio = ref('')
+const filtroAsigUnidad = ref('')
+const expandedAsigId = ref(null)
+
+const unidadesFiltroAsignaciones = computed(() => {
+  if (!filtroAsigCondominio.value) return []
+  return unidades.value.filter(u => u.condominioId === filtroAsigCondominio.value)
+})
+
+function onFiltroAsigCondoChange() {
+  filtroAsigUnidad.value = ''
+}
+
+const asignacionesFiltradas = computed(() => {
+  let list = asignaciones.value
+  if (filtroAsigCondominio.value) {
+    list = list.filter(a => a.condominio_id === filtroAsigCondominio.value)
+  }
+  if (filtroAsigUnidad.value) {
+    list = list.filter(a => a.unidad_id === filtroAsigUnidad.value)
+  }
+  return list
+})
+
+function toggleAsig(id) {
+  if (expandedAsigId.value === id) {
+    expandedAsigId.value = null
+  } else {
+    expandedAsigId.value = id
+  }
+}
+
 const asigSearchTerm = ref('')
 const asigSearchResults = ref([])
 const asigSelectedUser = ref(null)

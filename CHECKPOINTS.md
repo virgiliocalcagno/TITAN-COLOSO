@@ -12,12 +12,32 @@ Sistema de checkpoints para restaurar la aplicación a un estado estable previo.
 | v1.1.0  | 2026-03-01 | Módulo 2: Gestión de Identidades y Asignaciones        |
 | v1.2.0  | 2026-03-01 | Módulo 3: Operación de Accesos y Seguridad             |
 | v1.3.0  | 2026-03-02 | Módulo 4: IA, OCR en Cascada e Identidad Internacional |
+| v1.4.0  | 2026-03-05 | Interfaz Escalable: Acordeón y Filtros en Asignaciones |
 
 ---
 
 ## Checkpoints
 
-### CP004 — v1.3.0 Inteligencia Artificial e Identidad Internacional ⭐ ACTUAL
+### CP005 — v1.4.0 Interfaz Escalable de Asignaciones ⭐ ACTUAL
+
+- **Fecha**: 2026-03-05 14:15 AST
+- **Commit**: *(Se generará al confirmar)*
+- **Tag**: `v1.4.0`
+- **Branch**: `main`
+- **Deploy**: [titan-coloso.web.app](https://titan-coloso.web.app)
+- **Estado**: ✅ Estable
+
+**Funcionalidades incluidas:**
+
+- **Acordeón Adaptativo**: Rediseño de las tarjetas de asignaciones en el Panel de Administración a un formato despegable (cerradas por defecto).
+- **Vista Limpia**: Exposición mínima (Condominio, Unidad y Rol) en modo colapsado para maximizar escaneabilidad.
+- **Micro-interacciones**: Animaciones CSS fluidas de despliegue (`v-show`, `transition-all`) y rotación de indicadores (Chevron).
+- **Filtros Dinámicos Combinados**: Filtros encadenados ("Condominio" -> "Unidad") que modifican reactivamente el listado de asignaciones visualizado.
+- **Protección contra Toques Accidentales**: Los botones críticos (Editar y Revocar) se encuentran ocultos dentro del acordeón, evitando ejecuciones accidentales en dispositivos móviles.
+
+---
+
+### CP004 — v1.3.0 Inteligencia Artificial e Identidad Internacional
 
 - **Fecha**: 2026-03-02 23:59 AST
 - **Commit**: *(Se generará al confirmar)*
