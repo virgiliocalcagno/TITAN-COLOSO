@@ -567,9 +567,9 @@
           </div>
         </div>
 
-        <!-- Seleccionar Condominio y Unidad -->
+        <!-- Seleccionar Condominio, Agrupador y Unidad -->
         <div class="grid grid-cols-2 gap-3 mb-3">
-          <div>
+          <div class="col-span-2 sm:col-span-1">
             <label class="text-xs text-gray-400 uppercase tracking-wider mb-1 block">Condominio</label>
             <select v-model="asigCondoId" @change="onAsigCondoChange"
               class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2.5 text-white text-sm focus:border-amber-500 focus:outline-none">
@@ -577,12 +577,20 @@
               <option v-for="c in condominios" :key="c.id" :value="c.id">{{ c.nombre }}</option>
             </select>
           </div>
-          <div>
-            <label class="text-xs text-gray-400 uppercase tracking-wider mb-1 block">Unidad</label>
-            <select v-model="asigUnidadId"
-              class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2.5 text-white text-sm focus:border-amber-500 focus:outline-none">
+          <div class="col-span-2 sm:col-span-1">
+            <label class="text-xs text-gray-400 uppercase tracking-wider mb-1 block">Edificio / Bloque</label>
+            <select v-model="asigAgrupadorId" @change="onAsigAgrupadorChange" :disabled="!asigCondoId"
+              class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2.5 text-white text-sm focus:border-amber-500 focus:outline-none disabled:opacity-50">
               <option value="">Seleccionar...</option>
-              <option v-for="u in asigUnidadesDisponibles" :key="u.id" :value="u.id">{{ u.agrupadorNombre }} · {{ u.codigo_unidad }}</option>
+              <option v-for="a in asigAgrupadoresDisponibles" :key="a.id" :value="a.id">{{ a.nombre }}</option>
+            </select>
+          </div>
+          <div class="col-span-2">
+            <label class="text-xs text-gray-400 uppercase tracking-wider mb-1 block">Unidad</label>
+            <select v-model="asigUnidadId" :disabled="!asigAgrupadorId"
+              class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2.5 text-white text-sm focus:border-amber-500 focus:outline-none disabled:opacity-50">
+              <option value="">Seleccionar...</option>
+              <option v-for="u in asigUnidadesDisponibles" :key="u.id" :value="u.id">{{ u.codigo_unidad }}</option>
             </select>
           </div>
           <div>
@@ -628,14 +636,18 @@
       </div>
       
       <!-- Filtros -->
-      <div class="grid grid-cols-2 gap-2 mb-3">
-        <select v-model="filtroAsigCondominio" @change="onFiltroAsigCondoChange" class="bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none">
+      <div class="grid grid-cols-3 gap-2 mb-3">
+        <select v-model="filtroAsigCondominio" @change="onFiltroAsigCondoChange" class="col-span-3 sm:col-span-1 bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none">
           <option value="">Todos los Condominios</option>
           <option v-for="c in condominios" :key="c.id" :value="c.id">{{ c.nombre }}</option>
         </select>
-        <select v-model="filtroAsigUnidad" :disabled="!filtroAsigCondominio" class="bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none disabled:opacity-50">
+        <select v-model="filtroAsigAgrupador" @change="onFiltroAsigAgrupadorChange" :disabled="!filtroAsigCondominio" class="col-span-3 sm:col-span-1 bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none disabled:opacity-50">
+          <option value="">Todos los Edificios/Bloques</option>
+          <option v-for="a in agrupadoresFiltroAsignaciones" :key="a.id" :value="a.id">{{ a.nombre }}</option>
+        </select>
+        <select v-model="filtroAsigUnidad" :disabled="!filtroAsigAgrupador" class="col-span-3 sm:col-span-1 bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none disabled:opacity-50">
           <option value="">Todas las Unidades</option>
-          <option v-for="u in unidadesFiltroAsignaciones" :key="u.id" :value="u.id">{{ u.agrupadorNombre }} · {{ u.codigo_unidad }}</option>
+          <option v-for="u in unidadesFiltroAsignaciones" :key="u.id" :value="u.id">{{ u.codigo_unidad }}</option>
         </select>
       </div>
 
@@ -646,19 +658,25 @@
           <div v-if="editingAsigId === a.id" class="p-3 space-y-2">
             <p class="text-white text-sm font-medium">{{ a.usuario_nombre }}</p>
             <div class="grid grid-cols-2 gap-2">
-              <div>
+              <div class="col-span-2">
                 <label class="text-[10px] text-gray-500 uppercase">Condominio</label>
                 <select v-model="editAsigData.condominio_id" @change="onEditAsigCondoChange" class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none">
                   <option v-for="c in condominios" :key="c.id" :value="c.id">{{ c.nombre }}</option>
                 </select>
               </div>
               <div>
-                <label class="text-[10px] text-gray-500 uppercase">Unidad</label>
-                <select v-model="editAsigData.unidad_id" class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none">
-                  <option v-for="u in editAsigUnidades" :key="u.id" :value="u.id">{{ u.agrupadorNombre }} · {{ u.codigo_unidad }}</option>
+                <label class="text-[10px] text-gray-500 uppercase">Edificio/Bloque</label>
+                <select v-model="editAsigData.agrupador_id" @change="onEditAsigAgrupadorChange" class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none">
+                  <option v-for="a in editAsigAgrupadores" :key="a.id" :value="a.id">{{ a.nombre }}</option>
                 </select>
               </div>
               <div>
+                <label class="text-[10px] text-gray-500 uppercase">Unidad</label>
+                <select v-model="editAsigData.unidad_id" class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none">
+                  <option v-for="u in editAsigUnidades" :key="u.id" :value="u.id">{{ u.codigo_unidad }}</option>
+                </select>
+              </div>
+              <div class="col-span-2">
                 <label class="text-[10px] text-gray-500 uppercase">Rol</label>
                 <select v-model="editAsigData.rol_vinculado" class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none">
                   <option v-for="r in rolesVinculados" :key="r.id" :value="r.id">{{ r.icon }} {{ r.label }}</option>
@@ -1143,15 +1161,26 @@ function rolIcon(rol) {
 const asignaciones = ref([])
 
 const filtroAsigCondominio = ref('')
+const filtroAsigAgrupador = ref('')
 const filtroAsigUnidad = ref('')
 const expandedAsigId = ref(null)
 
-const unidadesFiltroAsignaciones = computed(() => {
+const agrupadoresFiltroAsignaciones = computed(() => {
   if (!filtroAsigCondominio.value) return []
-  return unidades.value.filter(u => u.condominioId === filtroAsigCondominio.value)
+  return agrupadores.value.filter(a => a.condominioId === filtroAsigCondominio.value)
+})
+
+const unidadesFiltroAsignaciones = computed(() => {
+  if (!filtroAsigAgrupador.value) return []
+  return unidades.value.filter(u => u.agrupadorId === filtroAsigAgrupador.value)
 })
 
 function onFiltroAsigCondoChange() {
+  filtroAsigAgrupador.value = ''
+  filtroAsigUnidad.value = ''
+}
+
+function onFiltroAsigAgrupadorChange() {
   filtroAsigUnidad.value = ''
 }
 
@@ -1159,6 +1188,10 @@ const asignacionesFiltradas = computed(() => {
   let list = asignaciones.value
   if (filtroAsigCondominio.value) {
     list = list.filter(a => a.condominio_id === filtroAsigCondominio.value)
+  }
+  if (filtroAsigAgrupador.value) {
+    const unitIds = unidades.value.filter(u => u.agrupadorId === filtroAsigAgrupador.value).map(u => u.id)
+    list = list.filter(a => unitIds.includes(a.unidad_id))
   }
   if (filtroAsigUnidad.value) {
     list = list.filter(a => a.unidad_id === filtroAsigUnidad.value)
@@ -1178,12 +1211,14 @@ const asigSearchTerm = ref('')
 const asigSearchResults = ref([])
 const asigSelectedUser = ref(null)
 const asigCondoId = ref('')
+const asigAgrupadorId = ref('')
 const asigUnidadId = ref('')
 const asigRol = ref('Propietario')
 const asigFechaInicio = ref('')
 const asigFechaFin = ref('')
 const asigError = ref('')
 const asigSuccess = ref('')
+const asigAgrupadoresDisponibles = ref([])
 const asigUnidadesDisponibles = ref([])
 
 const canCreateAsig = computed(() => {
@@ -1198,8 +1233,15 @@ async function onAsigSearch() {
 }
 
 function onAsigCondoChange() {
+  asigAgrupadorId.value = ''
   asigUnidadId.value = ''
-  asigUnidadesDisponibles.value = unidades.value.filter(u => u.condominioId === asigCondoId.value)
+  asigAgrupadoresDisponibles.value = agrupadores.value.filter(a => a.condominioId === asigCondoId.value)
+  asigUnidadesDisponibles.value = []
+}
+
+function onAsigAgrupadorChange() {
+  asigUnidadId.value = ''
+  asigUnidadesDisponibles.value = unidades.value.filter(u => u.agrupadorId === asigAgrupadorId.value)
 }
 
 async function crearAsignacion() {
@@ -1224,23 +1266,44 @@ async function revocarAsignacion(id) {
 
 // Edición de asignación
 const editingAsigId = ref(null)
-const editAsigData = ref({ condominio_id: '', unidad_id: '', rol_vinculado: '', fecha_inicio: '', fecha_fin: '' })
+const editAsigData = ref({ condominio_id: '', agrupador_id: '', unidad_id: '', rol_vinculado: '', fecha_inicio: '', fecha_fin: '' })
+const editAsigAgrupadores = ref([])
 const editAsigUnidades = ref([])
 
 function startEditAsig(a) {
   editingAsigId.value = a.id
-  editAsigData.value = { condominio_id: a.condominio_id, unidad_id: a.unidad_id, rol_vinculado: a.rol_vinculado, fecha_inicio: a.fecha_inicio || '', fecha_fin: a.fecha_fin || '' }
-  editAsigUnidades.value = unidades.value.filter(u => u.condominioId === a.condominio_id)
+  const assignedUnit = unidades.value.find(u => u.id === a.unidad_id)
+  const currentAgrupadorId = assignedUnit?.agrupadorId || ''
+  
+  editAsigData.value = { 
+    condominio_id: a.condominio_id, 
+    agrupador_id: currentAgrupadorId,
+    unidad_id: a.unidad_id, 
+    rol_vinculado: a.rol_vinculado, 
+    fecha_inicio: a.fecha_inicio || '', 
+    fecha_fin: a.fecha_fin || '' 
+  }
+  editAsigAgrupadores.value = agrupadores.value.filter(aGrp => aGrp.condominioId === a.condominio_id)
+  editAsigUnidades.value = unidades.value.filter(u => u.agrupadorId === currentAgrupadorId)
 }
 
 function onEditAsigCondoChange() {
+  editAsigData.value.agrupador_id = ''
   editAsigData.value.unidad_id = ''
-  editAsigUnidades.value = unidades.value.filter(u => u.condominioId === editAsigData.value.condominio_id)
+  editAsigAgrupadores.value = agrupadores.value.filter(a => a.condominioId === editAsigData.value.condominio_id)
+  editAsigUnidades.value = []
+}
+
+function onEditAsigAgrupadorChange() {
+  editAsigData.value.unidad_id = ''
+  editAsigUnidades.value = unidades.value.filter(u => u.agrupadorId === editAsigData.value.agrupador_id)
 }
 
 async function guardarEdicionAsignacion(id) {
   try {
-    await editarAsignacion(id, editAsigData.value)
+    const dataToSave = { ...editAsigData.value }
+    delete dataToSave.agrupador_id // Remove UI helper variable
+    await editarAsignacion(id, dataToSave)
     editingAsigId.value = null
     await refreshData()
   } catch (e) { alert(e.message) }
