@@ -5,7 +5,7 @@ import { useFirestore } from '../composables/useFirestore.js'
 import { Building2, Users, QrCode, ShieldCheck, TrendingUp, ArrowUpRight, Clock, CheckCircle2, XCircle, AlertCircle, Truck } from 'lucide-vue-next'
 
 const { userId, userName } = useAuth()
-const { getCondominios, getUnidadesByPropietario, getInvitacionesByPropietario, getActividadReciente } = useFirestore()
+const { getCondominios, getUnidadesByPropietario, getInvitacionesByPropietario, getActividadReciente, anularInvitacion } = useFirestore()
 
 const condominios = ref([])
 const unidades = ref([])
@@ -14,7 +14,7 @@ const actividad = ref([])
 const selectedCondominio = ref('todos')
 const isLoading = ref(true)
 
-onMounted(async () => {
+async function cargarDatos() {
   const [c, u, i, a] = await Promise.all([
     getCondominios(),
     getUnidadesByPropietario(userId.value),
@@ -26,7 +26,21 @@ onMounted(async () => {
   invitaciones.value = i || []
   actividad.value = a || []
   isLoading.value = false
-})
+}
+
+onMounted(cargarDatos)
+
+async function confirmarAnulacion(inv) {
+  if (confirm(`¿Estás seguro que deseas anular el pase de ${inv.nombreVisitante}? Esta acción "quemará" el código QR y no podrá ser utilizado.`)) {
+    try {
+      await anularInvitacion(inv.idQR || inv.id)
+      await cargarDatos() // refresh
+      alert('Pase anulado exitosamente')
+    } catch (e) {
+      alert('Error anulando el pase: ' + e.message)
+    }
+  }
+}
 
 const stats = computed(() => ({
   condominios: condominios.value.length,
@@ -139,9 +153,13 @@ function getBadgeClass(estatus) {
             <p class="text-sm font-medium truncate">{{ inv.nombreVisitante }}</p>
             <p class="text-xs text-white/40">{{ inv.condominioNombre }} - {{ inv.unidadNumero }}</p>
           </div>
-          <div class="flex flex-col items-end gap-1">
+          <div class="flex flex-col items-end gap-2">
             <span :class="getBadgeClass(inv.estatus)" class="text-[10px] px-2 py-0.5 rounded-full font-semibold">{{ inv.estatus }}</span>
-            <span class="text-[10px] text-white/30">{{ inv.tipo }}</span>
+            <div v-if="inv.estatus === 'Pendiente'" class="flex items-center gap-2 mt-1">
+               <router-link :to="`/generar-qr?edit=${inv.idQR || inv.id}`" title="Modificar Pase" class="text-[10px] px-2 py-1 bg-titan-500/20 text-titan-300 rounded-lg hover:bg-titan-500/40 transition-colors">✏️ Editar</router-link>
+               <button @click="confirmarAnulacion(inv)" title="Anular Pase" class="text-[10px] px-2 py-1 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/40 transition-colors">🚫 Anular</button>
+            </div>
+            <span v-else class="text-[10px] text-white/30">{{ inv.tipo }}</span>
           </div>
         </div>
       </div>

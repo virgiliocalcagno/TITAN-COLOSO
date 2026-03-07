@@ -4,10 +4,13 @@ import { useAuth } from '../composables/useAuth.js'
 import { useFirestore } from '../composables/useFirestore.js'
 import { extraerDatosDocumento } from '../services/ai.js'
 import QRCode from 'qrcode'
-import { ChevronDown, Calendar, Clock, User, Building2, Copy, Share2, CheckCircle2, Camera, FileText, Edit3, ArrowLeft, ArrowRight, X, ImageIcon, Download, Truck, ArrowUpRight } from 'lucide-vue-next'
+import { useRoute } from 'vue-router'
+import * as htmlToImage from 'html-to-image'
+import { ChevronDown, Calendar, Clock, User, Building2, Copy, Share2, CheckCircle2, Camera, FileText, Edit3, ArrowLeft, ArrowRight, X, ImageIcon, Download, Truck, ArrowUpRight, AlertTriangle } from 'lucide-vue-next'
 
-const { userId, isAdmin } = useAuth()
-const { getCondominios, getUnidades, getUnidadesByPropietario, createInvitacion } = useFirestore()
+const { userId, isAdmin, userName } = useAuth()
+const { getCondominios, getUnidades, getUnidadesByPropietario, createInvitacion, getSiguientePase, getInvitacionByQR, anularInvitacion } = useFirestore()
+const route = useRoute()
 
 const condominios = ref([])
 const unidades = ref([])
@@ -27,9 +30,11 @@ const fotoDocumento = ref(null)
 const qrGenerado = ref(false)
 const qrCodigo = ref('')
 const qrImageSrc = ref('')
+const paseSecuencial = ref('')
 const copiado = ref(false)
 const isLoading = ref(false)
 const paso = ref(1) // 1=formulario, 2=revision, 3=qr/gafete generado
+const editandoId = ref(null)
 
 const paisOrigen = ref('')
 const showPhotoMenu = ref(false)
@@ -70,10 +75,41 @@ onMounted(async () => {
     } else {
       unidades.value = await getUnidadesByPropietario(userId.value) || []
     }
-    const tomorrow = new Date()
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    fechaExpiracion.value = tomorrow.toISOString().split('T')[0]
-    fechaInicio.value = new Date().toISOString().split('T')[0]
+    if (route.query.edit) {
+      editandoId.value = route.query.edit
+      const inv = await getInvitacionByQR(route.query.edit) || (await getInvitacionesByPropietario(userId.value)).find(i => i.id === route.query.edit)
+      
+      if (inv) {
+        selectedCondominio.value = inv.condominioId
+        selectedUnidad.value = inv.unidadId
+        nombreVisitante.value = inv.nombreVisitante
+        telefono.value = inv.telefono
+        nacionalidad.value = inv.nacionalidad
+        documentoId.value = inv.documentoId
+        tipoDocumento.value = inv.tipoDocumento || 'cedula'
+        paisOrigen.value = inv.pais_origen || ''
+        tipoVisitante.value = inv.tipo
+        if (inv.fechaInicio) fechaInicio.value = inv.fechaInicio
+        if (inv.fechaSalida) fechaSalida.value = inv.fechaSalida
+        if (inv.fechaExpiracion) {
+          fechaExpiracion.value = inv.fechaExpiracion.split('T')[0]
+          const timeFragment = inv.fechaExpiracion.split('T')[1]
+          if (timeFragment) horaExpiracion.value = timeFragment.substring(0, 5)
+        }
+        if (inv.logistica) {
+          vehiculoPlaca.value = inv.logistica.placa
+          vehiculoTipo.value = inv.logistica.tipo
+          vehiculoMarca.value = inv.logistica.marca
+          sentidoMovimiento.value = inv.logistica.sentido
+        }
+        if (inv.fotoDocumento) fotoDocumento.value = inv.fotoDocumento
+      }
+    } else {
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      fechaExpiracion.value = tomorrow.toISOString().split('T')[0]
+      fechaInicio.value = new Date().toISOString().split('T')[0]
+    }
   } catch (e) {
     console.error('Error in onMounted:', e)
   } finally {
@@ -192,6 +228,9 @@ function volverAFormulario() { paso.value = 1 }
 async function generarQR() {
   isLoading.value = true
   try {
+    const secuencial = await getSiguientePase()
+    paseSecuencial.value = secuencial
+
     const inv = await createInvitacion({
       condominioId: selectedCondominio.value,
       condominioNombre: condominioSeleccionado.value?.nombre || '',
@@ -216,17 +255,24 @@ async function generarQR() {
         marca: vehiculoMarca.value,
         sentido: sentidoMovimiento.value
       } : null,
-      fotoDocumento: fotoDocumento.value
+      fotoDocumento: fotoDocumento.value,
+      numeroPase: secuencial
     })
     qrCodigo.value = inv.idQR
     // Generate real QR image
     qrImageSrc.value = await QRCode.toDataURL(inv.idQR, { width: 300, margin: 2, color: { dark: '#1a1a2e', light: '#ffffff' } })
     paso.value = 3
     qrGenerado.value = true
+
+    // Quemar / anular el pase anterior automáticamente por seguridad
+    if (editandoId.value) {
+      await anularInvitacion(editandoId.value)
+    }
   } finally {
     isLoading.value = false
   }
 }
+
 
 function copiarCodigo() {
   navigator.clipboard.writeText(qrCodigo.value)
@@ -234,21 +280,41 @@ function copiarCodigo() {
   setTimeout(() => copiado.value = false, 2000)
 }
 
-function compartirWhatsApp() {
-  let texto = `🔐 TITAN Coloso - Acceso Autorizado%0A%0A`
-  texto += `👤 Visitante: ${nombreVisitante.value}%0A`
-  texto += `🏢 Destino: ${condominioSeleccionado.value?.nombre} - ${unidadSeleccionada.value?.codigo_unidad || unidadSeleccionada.value?.numero}%0A`
-  if (esAirbnb.value) {
-    texto += `📅 Check-in: ${fechaInicio.value}%0A`
-    texto += `📅 Check-out: ${fechaSalida.value}%0A`
-  } else if (esLogistica.value) {
-    texto += `🚚 Placa: ${vehiculoPlaca.value} (${sentidoMovimiento.value})%0A`
-  } else {
-    texto += `⏰ Expira: ${fechaExpiracion.value} ${horaExpiracion.value}%0A`
+async function compartirWhatsApp() {
+  if (!gafeteRef.value) return
+  isLoading.value = true
+  try {
+    const dataUrl = await htmlToImage.toPng(gafeteRef.value, { 
+      quality: 0.95,
+      pixelRatio: 2, // Retína quality
+      style: { borderRadius: '0' } // Evitar esquinas transparentes negras
+    })
+    
+    const blob = await (await fetch(dataUrl)).blob()
+    const file = new File([blob], `gafete-${qrCodigo.value}.png`, { type: 'image/png' })
+
+    const shareData = {
+      title: 'Pase de Acceso TITAN',
+      text: `Muestra este pase al vigilante. N° ${paseSecuencial.value}`,
+      files: [file]
+    }
+
+    if (navigator.canShare && navigator.canShare(shareData)) {
+      await navigator.share(shareData)
+    } else {
+      // Fallback a descargar imagen si el share API nativo falla
+      const link = document.createElement('a')
+      link.download = `gafete-${qrCodigo.value}.png`
+      link.href = dataUrl
+      link.click()
+      alert('Imagen descargada. Puedes compartirla manualmente.')
+    }
+  } catch(e) {
+    console.error("Error capturando foto", e)
+    alert("Hubo un problema al generar la imagen.")
+  } finally {
+    isLoading.value = false
   }
-  texto += `🎫 Código: ${qrCodigo.value}%0A%0A`
-  texto += `Muestra este código al vigilante de garita.`
-  window.open(`https://wa.me/?text=${texto}`, '_blank')
 }
 
 function formatFecha(f) {
@@ -282,8 +348,13 @@ function resetFormulario() {
 <template>
   <div class="space-y-6 animate-fade-in-up">
     <div>
-      <h2 class="text-2xl font-bold">Generar Acceso QR</h2>
-      <p class="text-white/40 text-sm mt-1">Crea un codigo de acceso para tu visitante</p>
+      <h2 class="text-2xl font-bold flex items-center gap-2">
+        <QrCode class="w-6 h-6 text-titan-400" />
+        {{ editandoId ? 'Modificar Acceso QR' : 'Generar Acceso QR' }}
+      </h2>
+      <p class="text-white/40 text-sm mt-1">
+        {{ editandoId ? 'Al emitir el nuevo código, el pase anterior quedará anulado y bloqueado.' : 'Crea un código de acceso o pase para tu visitante' }}
+      </p>
     </div>
 
     <!-- Progress -->
@@ -555,19 +626,29 @@ function resetFormulario() {
 
     <!-- PASO 3: GAFETE VISUAL -->
     <div v-if="paso === 3" class="space-y-6">
-      <div ref="gafeteRef" class="relative overflow-hidden rounded-3xl border border-white/10 shadow-2xl">
-        <div class="bg-gradient-to-br from-titan-600 via-titan-700 to-purple-900 px-6 py-5">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
-                <span class="text-lg font-bold text-white">T</span>
+      
+      <!-- Contenedor Maestro para la Captura de Imagen -->
+      <div ref="gafeteRef" class="bg-gradient-to-br from-gray-900 to-black p-4 flex justify-center items-center">
+        <!-- Tarjeta del Gafete (Redondeada y Sombra) -->
+        <div class="relative overflow-hidden rounded-[2rem] border border-white/10 shadow-2xl w-full max-w-sm">
+          <div class="bg-gradient-to-br from-titan-600 via-titan-700 to-purple-900 px-6 py-5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
+                  <span class="text-lg font-bold text-white">T</span>
+                </div>
+                <div>
+                  <p class="text-[10px] text-white/60 uppercase tracking-widest leading-tight">Acceso Autorizado</p>
+                  <p class="text-sm font-bold text-white tracking-wide">TITAN COLOSO</p>
+                </div>
               </div>
-              <div>
-                <p class="text-sm font-bold text-white tracking-wide">TITAN COLOSO</p>
-                <p class="text-[10px] text-white/60 uppercase tracking-widest">Acceso Autorizado</p>
+            <div class="flex items-center gap-3">
+              <div class="px-3 py-1 bg-white/10 backdrop-blur rounded-lg border border-white/20 whitespace-nowrap">
+                  <p class="text-[9px] text-white/50 uppercase tracking-widest font-bold mb-[1px]">N° de Pase</p>
+                  <p class="text-sm font-bold text-white tracking-widest font-mono">#{{ paseSecuencial }}</p>
               </div>
             </div>
-            <div class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
+            <div class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap"
               :class="esAirbnb ? 'bg-amber-500/30 text-amber-200 border border-amber-400/30' : esLogistica ? 'bg-blue-500/30 text-blue-200 border border-blue-400/30' : 'bg-emerald-500/30 text-emerald-200 border border-emerald-400/30'">
               {{ tipoVisitante === 'Airbnb' ? '🏖️ Airbnb' : (tiposVisitante.find(t => t.id === tipoVisitante)?.icon + ' ' + (tiposVisitante.find(t => t.id === tipoVisitante)?.label || tipoVisitante)) }}
             </div>
@@ -633,6 +714,17 @@ function resetFormulario() {
             <p class="text-sm font-semibold text-white">{{ formatFecha(fechaExpiracion) }} · {{ horaExpiracion }}</p>
           </div>
 
+          <!-- Información del Emisor -->
+          <div class="bg-white/5 rounded-xl p-3 mb-5 border border-white/10 flex items-center gap-3">
+             <div class="w-8 h-8 rounded-full bg-titan-500/30 flex items-center justify-center text-titan-300">
+               <User class="w-4 h-4" />
+             </div>
+             <div>
+               <p class="text-[9px] text-white/40 uppercase tracking-widest">Emitido y Autorizado Por</p>
+               <p class="text-xs font-bold text-white">{{ userName || 'Propietario TITAN' }}</p>
+             </div>
+          </div>
+
           <div class="flex flex-col items-center">
             <div class="w-48 h-48 bg-white rounded-2xl p-2 shadow-xl shadow-black/30">
               <img v-if="qrImageSrc" :src="qrImageSrc" alt="QR Code" class="w-full h-full" />
@@ -641,11 +733,12 @@ function resetFormulario() {
           </div>
         </div>
 
-        <div class="bg-gray-950 px-6 py-3 flex items-center justify-between border-t border-white/5">
-          <p class="text-[9px] text-white/20 uppercase tracking-widest">Muestra este gafete al vigilante</p>
-          <p class="text-[9px] text-white/20">v2.5</p>
+        <div class="bg-gray-950 px-6 py-4 flex flex-col items-center justify-center border-t border-white/5 space-y-1">
+          <p class="text-[10px] text-white/40 uppercase tracking-widest">Powered by Virgilio Calcagno</p>
+          <p class="text-[9px] text-white/20">virgiliocalcagno@gmail.com</p>
         </div>
       </div>
+    </div>
 
       <div class="flex gap-3">
         <button @click="copiarCodigo" class="btn-secondary flex-1 flex items-center justify-center gap-2">

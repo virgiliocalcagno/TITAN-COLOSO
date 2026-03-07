@@ -12,10 +12,7 @@ const loadFromLocal = (key, defaultData) => {
 }
 
 import { db } from './config.js'
-import {
-    collection, doc, getDoc, getDocs, addDoc, updateDoc,
-    query, where, orderBy, serverTimestamp, deleteDoc
-} from 'firebase/firestore'
+import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc, serverTimestamp, orderBy, setDoc, runTransaction } from 'firebase/firestore'
 
 
 // ============================================
@@ -226,6 +223,47 @@ export async function getInvitacionesByPropietario(propietarioId) {
     })
 }
 
+export async function getInvitacionesActivasByPropietario(propietarioId) {
+    if (MOCK_MODE) {
+        return seedInvitaciones
+            .filter(i => i.propietarioId === propietarioId && i.estatus === 'Pendiente')
+            .sort((a, b) => (b.fechaCreacion || '').localeCompare(a.fechaCreacion || ''))
+    }
+    const q = query(
+        collection(db, 'invitaciones'),
+        where('propietarioId', '==', propietarioId),
+        where('estatus', '==', 'Pendiente')
+    )
+    const snap = await getDocs(q)
+    return snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.fechaCreacion || '').localeCompare(a.fechaCreacion || ''))
+}
+
+export async function anularInvitacion(invitacionId) {
+    if (MOCK_MODE) {
+        const inv = seedInvitaciones.find(i => i.id === invitacionId || i.idQR === invitacionId)
+        if (inv) inv.estatus = 'Anulado'
+        return true
+    }
+
+    // Si viene un TITAN-QR en vez de ID de documento, lo buscamos
+    let docId = invitacionId
+    if (invitacionId.startsWith('TITAN-')) {
+        const q = query(collection(db, 'invitaciones'), where('idQR', '==', invitacionId))
+        const snap = await getDocs(q)
+        if (!snap.empty) {
+            docId = snap.docs[0].id
+        }
+    }
+
+    await updateDoc(doc(db, 'invitaciones', docId), {
+        estatus: 'Anulado',
+        updatedAt: serverTimestamp()
+    })
+    return true
+}
+
 export async function getInvitacionesByUnidad(unidadId) {
     if (MOCK_MODE) return seedInvitaciones.filter(i => i.unidadId === unidadId)
     const q = query(collection(db, 'invitaciones'), where('unidadId', '==', unidadId))
@@ -266,34 +304,23 @@ export async function updateInvitacion(invitacionId, data) {
 }
 
 // ============================================
-// ACTIVIDAD (Log de accesos)
+// ACTIVIDAD (Log de accesos históricos genéricos - MOCK OLD)
 // ============================================
-
-const seedActividad = [
-    { id: 1, accion: 'Acceso aprobado', visitante: 'Carlos Mendez', unidad: 'G44', condominio: 'White Sand', hora: 'Hace 2h', tipo: 'entrada', timestamp: Date.now() - 7200000 },
-    { id: 2, accion: 'QR generado', visitante: 'Maria Lopez', unidad: 'Sea Dream 102', condominio: 'Sea Dream', hora: 'Hace 5h', tipo: 'qr', timestamp: Date.now() - 18000000 },
-    { id: 3, accion: 'Acceso denegado', visitante: 'Desconocido', unidad: 'G44', condominio: 'White Sand', hora: 'Ayer', tipo: 'denegado', timestamp: Date.now() - 86400000 },
-    { id: 4, accion: 'Delivery autorizado', visitante: 'PedidosYa', unidad: 'C-4', condominio: 'Pueblo Bavaro', hora: 'Hace 3 dias', tipo: 'delivery', timestamp: Date.now() - 259200000 },
-]
 
 export async function getActividadReciente(limit = 10) {
     if (MOCK_MODE) return seedActividad.slice(0, limit)
-    const q = query(collection(db, 'actividad'), orderBy('timestamp', 'desc'))
+    const q = query(collection(db, 'actividad'), orderBy('createdAt', 'desc'))
     const snap = await getDocs(q)
     return snap.docs.map(d => ({ id: d.id, ...d.data() })).slice(0, limit)
 }
 
 export async function getActividadByCondominio(condominioId) {
     if (MOCK_MODE) {
-        // En mock buscamos por nombre o por unidades vinculadas
-        const condo = seedCondominios.find(c => c.id === condominioId)
-        if (!condo) return []
-        const unidadesIds = seedUnidades.filter(u => u.condominioId === condominioId).map(u => u.codigo_unidad)
-        return seedActividad.filter(a => a.condominio === condo.nombre || unidadesIds.includes(a.unidad))
+        return seedActividad.filter(a => a.condominioId === condominioId)
     }
     const q = query(collection(db, 'actividad'), where('condominioId', '==', condominioId))
     const snap = await getDocs(q)
-    return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+    return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
 }
 
 export async function registrarActividad(data) {
@@ -1167,6 +1194,53 @@ export async function getSolicitudDelivery(id) {
     if (MOCK_MODE) return seedSolicitudesDelivery.find(s => s.id === id) || null
     const d = await getDoc(doc(db, 'solicitudes_delivery', id))
     return d.exists() ? { id: d.id, ...d.data() } : null
+}
+
+// ============================================
+// ACTIVIDAD - SECUENCIALES Y ACCESOS
+// ============================================
+
+// Ya fue declarada arriba como export let seedActividad
+let mockPaseCounter = loadFromLocal('paseCounter', { current: 1001 })
+
+export async function getSiguientePase() {
+    if (MOCK_MODE) {
+        mockPaseCounter.current += 1
+        saveToLocal('paseCounter', mockPaseCounter)
+        return mockPaseCounter.current
+    }
+
+    // Transacción Atómica Real para Producción
+    const contadorRef = doc(db, 'contadores', 'pases')
+    try {
+        const docSnap = await getDoc(contadorRef)
+        if (!docSnap.exists()) {
+            await setDoc(contadorRef, { actual: 1001 })
+            return 1001
+        }
+    } catch (e) { }
+
+    try {
+        return await runTransaction(db, async (transaction) => {
+            const sfDoc = await transaction.get(contadorRef)
+            if (!sfDoc.exists()) throw 'Secuencial corrupto'
+            const nextVal = sfDoc.data().actual + 1
+            transaction.update(contadorRef, { actual: nextVal })
+            return nextVal
+        })
+    } catch (e) {
+        console.error("Transacción fallida", e)
+        return Math.floor(Math.random() * 90000) + 10000
+    }
+}
+
+export async function addVisita(data) {
+    if (MOCK_MODE) {
+        seedActividad.unshift({ id: Date.now().toString(), ...data })
+        saveToLocal('actividad', seedActividad)
+        return true
+    }
+    await addDoc(collection(db, 'actividad'), { ...data, createdAt: serverTimestamp() })
 }
 
 // ============================================

@@ -34,11 +34,14 @@ export function useFirestore() {
     // Invitaciones
     const createInvitacion = (data) => execute(firestoreService.createInvitacion, data)
     const getInvitacionesByPropietario = (uid) => execute(firestoreService.getInvitacionesByPropietario, uid)
+    const getInvitacionesActivasByPropietario = (uid) => execute(firestoreService.getInvitacionesActivasByPropietario, uid)
     const getInvitacionesByUnidad = (uid) => execute(firestoreService.getInvitacionesByUnidad, uid)
     const getInvitacionByQR = (code) => execute(firestoreService.getInvitacionByQR, code)
     const updateInvitacionEstatus = (id, status) => execute(firestoreService.updateInvitacionEstatus, id, status)
+    const anularInvitacion = (id) => execute(firestoreService.anularInvitacion, id)
 
-    // Actividad
+    // Actividad / Pases
+    const getSiguientePase = () => execute(firestoreService.getSiguientePase)
     const getActividadReciente = (limit) => execute(firestoreService.getActividadReciente, limit)
     const registrarActividad = (data) => execute(firestoreService.registrarActividad, data)
 
@@ -83,10 +86,13 @@ export function useFirestore() {
         // Invitaciones
         createInvitacion,
         getInvitacionesByPropietario,
+        getInvitacionesActivasByPropietario,
         getInvitacionesByUnidad,
         getInvitacionByQR,
         updateInvitacionEstatus,
-        // Actividad
+        anularInvitacion,
+        // Actividad / Pases
+        getSiguientePase,
         getActividadReciente,
         registrarActividad,
         // Usuarios
