@@ -337,7 +337,7 @@
           <span class="text-white font-bold">{{ unidadesFiltradas.length }}</span> unidades
         </div>
         <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-1.5 text-emerald-300">
-          <span class="font-bold">{{ unidadesFiltradas.filter(u => u.propietarioId).length }}</span> asignadas
+          <span class="font-bold">{{ unidadesFiltradas.filter(u => asignaciones.some(a => a.unidad_id === u.id)).length }}</span> asignadas
         </div>
       </div>
       <div class="bg-gray-800/50 rounded-2xl border border-gray-700/40 overflow-hidden">
@@ -367,9 +367,9 @@
               </td>
               <td class="px-3 py-2.5 text-gray-300 text-xs">{{ u.condominioNombre }}</td>
               <td class="px-3 py-2.5">
-                <span :class="u.propietarioId ? 'bg-emerald-500/20 text-emerald-300' : 'bg-gray-700/50 text-gray-400'"
+                <span :class="asignaciones.some(a => a.unidad_id === u.id) ? 'bg-emerald-500/20 text-emerald-300' : 'bg-gray-700/50 text-gray-400'"
                   class="text-[10px] px-2 py-0.5 rounded-full">
-                  {{ u.propietarioId ? 'Asignada' : 'Libre' }}
+                  {{ asignaciones.some(a => a.unidad_id === u.id) ? 'Asignada' : 'Libre' }}
                 </span>
               </td>
               <td class="px-3 py-2.5 text-right">
@@ -715,10 +715,10 @@
                 </div>
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2 mb-0.5">
-                    <p class="text-white text-sm font-semibold truncate">{{ a.condominio_nombre }}</p>
+                    <p class="text-white text-sm font-semibold truncate">{{ a.usuario_nombre || 'Sin asignar' }}</p>
                     <span class="px-1.5 py-0.5 rounded text-[9px] font-bold" :class="rolBadgeColor(a.rol_vinculado)">{{ a.rol_vinculado }}</span>
                   </div>
-                  <p class="text-gray-400 text-xs truncate">Unidad: <span class="text-white font-medium">{{ a.agrupador_nombre }} · {{ a.unidad_codigo }}</span></p>
+                  <p class="text-gray-400 text-xs truncate">{{ a.condominio_nombre }} · {{ a.agrupador_nombre }} · <span class="text-white font-medium">{{ a.unidad_codigo }}</span></p>
                 </div>
               </div>
               <ChevronDown :class="expandedAsigId === a.id ? 'rotate-180 text-amber-500' : 'text-gray-500'" class="w-5 h-5 flex-shrink-0 transition-transform duration-300" />
