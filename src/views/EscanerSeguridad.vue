@@ -110,6 +110,30 @@ async function validarCodigo(codigo) {
     return
   }
 
+  // SEGURIDAD: Pase anulado (QR quemado)
+  if (inv.estatus === 'Anulado') {
+    resultado.value = 'invalido'
+    datosEscaneados.value = inv
+    await registrarActividad({
+      accion: 'Intento con pase ANULADO', visitante: inv.nombreVisitante || 'Desconocido',
+      unidad: inv.unidadNumero || 'N/A', condominio: inv.condominioNombre || 'N/A', hora: 'Ahora', tipo: 'denegado'
+    })
+    showToast('⛔ Este pase fue ANULADO. QR inválido.', 'error')
+    return
+  }
+
+  // SEGURIDAD: Pase ya fue utilizado
+  if (inv.estatus === 'Ingresado') {
+    resultado.value = 'invalido'
+    datosEscaneados.value = inv
+    await registrarActividad({
+      accion: 'Intento con pase YA USADO', visitante: inv.nombreVisitante || 'Desconocido',
+      unidad: inv.unidadNumero || 'N/A', condominio: inv.condominioNombre || 'N/A', hora: 'Ahora', tipo: 'denegado'
+    })
+    showToast('⚠️ Este pase ya fue utilizado anteriormente.', 'warning')
+    return
+  }
+
   const ahora = new Date()
   const expira = new Date(inv.fechaExpiracion)
 
@@ -120,6 +144,7 @@ async function validarCodigo(codigo) {
     return
   }
 
+  // Solo pases con estatus 'Pendiente' pasan como válidos
   resultado.value = 'valido'
   datosEscaneados.value = inv
   showToast('Código verificado exitosamente', 'success')
