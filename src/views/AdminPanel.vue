@@ -1184,8 +1184,23 @@ function onFiltroAsigAgrupadorChange() {
   filtroAsigUnidad.value = ''
 }
 
+const asignacionesEnriquecidas = computed(() => {
+  return asignaciones.value.map(a => {
+    const usuario = usuarios.value.find(u => u.id === a.usuario_id)
+    const unidad = unidades.value.find(u => u.id === a.unidad_id)
+    const condo = condominios.value.find(c => c.id === a.condominio_id)
+    return {
+      ...a,
+      usuario_nombre: usuario ? `${usuario.nombre} ${usuario.apellido}` : 'Usuario Desconocido',
+      unidad_codigo: unidad?.codigo_unidad || 'S/N',
+      condominio_nombre: condo?.nombre || 'Condominio Desconocido',
+      agrupador_nombre: unidad?.agrupadorNombre || 'S/N'
+    }
+  })
+})
+
 const asignacionesFiltradas = computed(() => {
-  let list = asignaciones.value
+  let list = asignacionesEnriquecidas.value
   if (filtroAsigCondominio.value) {
     list = list.filter(a => a.condominio_id === filtroAsigCondominio.value)
   }

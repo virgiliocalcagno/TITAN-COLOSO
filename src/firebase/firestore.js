@@ -272,10 +272,26 @@ export async function getInvitacionesByUnidad(unidadId) {
 }
 
 export async function getInvitacionByQR(codigoQR) {
-    if (MOCK_MODE) return seedInvitaciones.find(i => i.idQR === codigoQR) || null
+    if (MOCK_MODE) {
+        // Buscar por idQR primero, luego por numeroPase
+        return seedInvitaciones.find(i => i.idQR === codigoQR)
+            || seedInvitaciones.find(i => String(i.numeroPase) === String(codigoQR))
+            || null
+    }
+    // 1. Buscar por idQR (código QR completo)
     const q = query(collection(db, 'invitaciones'), where('idQR', '==', codigoQR))
     const snap = await getDocs(q)
-    return snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() }
+    if (!snap.empty) return { id: snap.docs[0].id, ...snap.docs[0].data() }
+
+    // 2. Fallback: buscar por numeroPase (entrada manual rápida, ej. "1005")
+    const numPase = parseInt(codigoQR, 10)
+    if (!isNaN(numPase)) {
+        const q2 = query(collection(db, 'invitaciones'), where('numeroPase', '==', numPase))
+        const snap2 = await getDocs(q2)
+        if (!snap2.empty) return { id: snap2.docs[0].id, ...snap2.docs[0].data() }
+    }
+
+    return null
 }
 
 export async function updateInvitacionEstatus(invitacionId, nuevoEstatus) {
