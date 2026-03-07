@@ -1028,7 +1028,30 @@ export async function getAsignacionesByUsuario(usuarioId) {
     }
     const q = query(collection(db, 'asignaciones_unidades'), where('usuario_id', '==', usuarioId))
     const snap = await getDocs(q)
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    const asignaciones = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+
+    // Enriquecer con datos de unidades y condominios
+    for (const a of asignaciones) {
+        try {
+            if (a.unidad_id) {
+                const uSnap = await getDoc(doc(db, 'unidades', a.unidad_id))
+                if (uSnap.exists()) {
+                    const uData = uSnap.data()
+                    a.unidad_codigo = uData.codigo_unidad || ''
+                    a.agrupador_nombre = uData.agrupadorNombre || ''
+                }
+            }
+            if (a.condominio_id) {
+                const cSnap = await getDoc(doc(db, 'condominios', a.condominio_id))
+                if (cSnap.exists()) {
+                    a.condominio_nombre = cSnap.data().nombre || ''
+                }
+            }
+        } catch (e) {
+            console.warn('Error enriqueciendo asignación:', e)
+        }
+    }
+    return asignaciones
 }
 
 export async function getAsignacionesByUnidad(unidadId) {

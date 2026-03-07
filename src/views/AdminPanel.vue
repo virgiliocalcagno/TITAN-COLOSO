@@ -636,19 +636,26 @@
       </div>
       
       <!-- Filtros -->
-      <div class="grid grid-cols-3 gap-2 mb-3">
-        <select v-model="filtroAsigCondominio" @change="onFiltroAsigCondoChange" class="col-span-3 sm:col-span-1 bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none">
-          <option value="">Todos los Condominios</option>
-          <option v-for="c in condominios" :key="c.id" :value="c.id">{{ c.nombre }}</option>
-        </select>
-        <select v-model="filtroAsigAgrupador" @change="onFiltroAsigAgrupadorChange" :disabled="!filtroAsigCondominio" class="col-span-3 sm:col-span-1 bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none disabled:opacity-50">
-          <option value="">Todos los Edificios/Bloques</option>
-          <option v-for="a in agrupadoresFiltroAsignaciones" :key="a.id" :value="a.id">{{ a.nombre }}</option>
-        </select>
-        <select v-model="filtroAsigUnidad" :disabled="!filtroAsigAgrupador" class="col-span-3 sm:col-span-1 bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none disabled:opacity-50">
-          <option value="">Todas las Unidades</option>
-          <option v-for="u in unidadesFiltroAsignaciones" :key="u.id" :value="u.id">{{ u.codigo_unidad }}</option>
-        </select>
+      <div class="space-y-2 mb-3">
+        <div class="relative">
+          <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <input v-model="filtroAsigUsuario" type="text" placeholder="Buscar por nombre de usuario..."
+            class="w-full bg-gray-900/50 border border-gray-700/50 rounded-lg pl-9 pr-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none placeholder:text-gray-600" />
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <select v-model="filtroAsigCondominio" @change="onFiltroAsigCondoChange" class="col-span-3 sm:col-span-1 bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none">
+            <option value="">Todos los Condominios</option>
+            <option v-for="c in condominios" :key="c.id" :value="c.id">{{ c.nombre }}</option>
+          </select>
+          <select v-model="filtroAsigAgrupador" @change="onFiltroAsigAgrupadorChange" :disabled="!filtroAsigCondominio" class="col-span-3 sm:col-span-1 bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none disabled:opacity-50">
+            <option value="">Todos los Edificios/Bloques</option>
+            <option v-for="a in agrupadoresFiltroAsignaciones" :key="a.id" :value="a.id">{{ a.nombre }}</option>
+          </select>
+          <select v-model="filtroAsigUnidad" :disabled="!filtroAsigAgrupador" class="col-span-3 sm:col-span-1 bg-gray-900/50 border border-gray-700/50 rounded-lg px-3 py-2 text-white text-xs focus:border-amber-500 focus:outline-none disabled:opacity-50">
+            <option value="">Todas las Unidades</option>
+            <option v-for="u in unidadesFiltroAsignaciones" :key="u.id" :value="u.id">{{ u.codigo_unidad }}</option>
+          </select>
+        </div>
       </div>
 
       <div class="space-y-2">
@@ -1163,6 +1170,7 @@ const asignaciones = ref([])
 const filtroAsigCondominio = ref('')
 const filtroAsigAgrupador = ref('')
 const filtroAsigUnidad = ref('')
+const filtroAsigUsuario = ref('')
 const expandedAsigId = ref(null)
 
 const agrupadoresFiltroAsignaciones = computed(() => {
@@ -1201,6 +1209,10 @@ const asignacionesEnriquecidas = computed(() => {
 
 const asignacionesFiltradas = computed(() => {
   let list = asignacionesEnriquecidas.value
+  if (filtroAsigUsuario.value) {
+    const term = filtroAsigUsuario.value.toLowerCase().trim()
+    list = list.filter(a => (a.usuario_nombre || '').toLowerCase().includes(term))
+  }
   if (filtroAsigCondominio.value) {
     list = list.filter(a => a.condominio_id === filtroAsigCondominio.value)
   }
