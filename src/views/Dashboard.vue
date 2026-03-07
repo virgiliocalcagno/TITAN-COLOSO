@@ -6,7 +6,7 @@ import { Building2, Users, QrCode, ShieldCheck, TrendingUp, ArrowUpRight, Clock,
 import QRCode from 'qrcode'
 
 const { userId, userName } = useAuth()
-const { getCondominios, getUnidadesByPropietario, getInvitacionesByPropietario, getActividadReciente, anularInvitacion } = useFirestore()
+const { getCondominios, getUnidadesByPropietario, getInvitacionesByPropietario, getActividadReciente, anularInvitacion, getAsignacionesByUsuario } = useFirestore()
 
 const condominios = ref([])
 const unidades = ref([])
@@ -16,14 +16,23 @@ const selectedCondominio = ref('todos')
 const isLoading = ref(true)
 
 async function cargarDatos() {
-  const [c, u, i, a] = await Promise.all([
+  const [c, asignaciones, i, a] = await Promise.all([
     getCondominios(),
-    getUnidadesByPropietario(userId.value),
+    getAsignacionesByUsuario(userId.value),
     getInvitacionesByPropietario(userId.value),
     getActividadReciente(5)
   ])
   condominios.value = c || []
-  unidades.value = u || []
+  // Construir unidades desde asignaciones para compatibilidad
+  unidades.value = (asignaciones || []).map(asig => ({
+    id: asig.unidad_id,
+    condominioId: asig.condominio_id,
+    condominioNombre: asig.condominio_nombre || '',
+    codigo_unidad: asig.unidad_codigo || '',
+    agrupadorNombre: asig.agrupador_nombre || '',
+    rol_vinculado: asig.rol_vinculado || '',
+    propietarioId: asig.usuario_id
+  }))
   invitaciones.value = i || []
   actividad.value = a || []
   isLoading.value = false

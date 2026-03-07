@@ -1288,7 +1288,15 @@ async function crearAsignacion() {
 }
 
 async function revocarAsignacion(id) {
-  try { await removeAsignacion(id); await refreshData() } catch (e) { alert(e.message) }
+  if (!confirm('¿Está seguro de revocar esta asignación? Esta acción no se puede deshacer.')) return
+  try {
+    await removeAsignacion(id)
+    await refreshData()
+    alert('✅ Asignación revocada exitosamente')
+  } catch (e) {
+    console.error('Error al revocar asignación:', e)
+    alert('❌ Error al revocar: ' + e.message)
+  }
 }
 
 // Edición de asignación
