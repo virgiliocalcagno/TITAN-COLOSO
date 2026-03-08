@@ -628,13 +628,13 @@ function resetFormulario() {
     </div>
 
     <!-- PASO 3: GAFETE VISUAL -->
-    <div v-if="paso === 3" class="space-y-6">
+    <div v-if="paso === 3" class="w-full flex-1 flex flex-col">
       
       <!-- Contenedor Maestro para la Captura de Imagen -->
-      <div ref="gafeteRef" class="bg-gradient-to-br from-gray-900 to-black p-4 flex justify-center items-center">
-        <!-- Tarjeta del Gafete (Redondeada y Sombra) -->
-        <div class="relative overflow-hidden rounded-[2rem] border border-white/10 shadow-2xl w-full max-w-sm">
-          <div class="bg-gradient-to-br from-titan-600 via-titan-700 to-purple-900 px-6 py-5">
+      <div ref="gafeteRef" class="w-full min-h-screen bg-gradient-to-br from-gray-900 to-black flex flex-col">
+        <!-- Tarjeta del Gafete (Sin bordes laterales/superiores, solo abajo) -->
+        <div class="w-full flex-1 flex flex-col relative overflow-hidden bg-gradient-to-b from-gray-900 to-gray-950 rounded-b-3xl pb-10">
+          <div class="bg-gradient-to-br from-titan-600 via-titan-700 to-purple-900 px-6 pt-10 pb-5 rounded-b-3xl shadow-xl">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-3">
                 <div class="w-10 h-10 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
@@ -742,16 +742,17 @@ function resetFormulario() {
         </div>
       </div>
     </div>
-
-      <div class="flex gap-3">
-        <button @click="copiarCodigo" class="btn-secondary flex-1 flex items-center justify-center gap-2">
-          <component :is="copiado ? CheckCircle2 : Copy" class="w-4 h-4" />{{ copiado ? "Copiado!" : "Copiar" }}
-        </button>
-        <button @click="compartirWhatsApp" class="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-medium bg-emerald-600 hover:bg-emerald-500 text-white transition-all">
-          <Share2 class="w-4 h-4" />WhatsApp
-        </button>
+      <div class="px-6 pb-8 pt-4 space-y-3 w-full max-w-sm mx-auto">
+        <div class="flex gap-3">
+          <button @click="copiarCodigo" class="flex-1 py-3 rounded-xl font-medium bg-white/5 text-white hover:bg-white/10 transition-all flex items-center justify-center gap-2">
+            <component :is="copiado ? CheckCircle2 : Copy" class="w-4 h-4" />{{ copiado ? "Copiado!" : "Copiar" }}
+          </button>
+          <button @click="compartirWhatsApp" class="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-medium bg-emerald-600 hover:bg-emerald-500 text-white transition-all">
+            <Share2 class="w-4 h-4" />WhatsApp
+          </button>
+        </div>
+        <button @click="resetFormulario" class="w-full py-3 rounded-xl font-medium text-white/50 hover:bg-white/5 transition-all text-center">Generar otro acceso</button>
       </div>
-      <button @click="resetFormulario" class="w-full btn-secondary text-center">Generar otro acceso</button>
     </div>
   </div>
 </template>
