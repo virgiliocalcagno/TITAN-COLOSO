@@ -33,7 +33,8 @@ async function cargarDatos() {
     codigo_unidad: asig.unidad_codigo || '',
     agrupadorNombre: asig.agrupador_nombre || '',
     rol_vinculado: asig.rol_vinculado || '',
-    propietarioId: asig.usuario_id
+    propietarioId: asig.usuario_id,
+    estado: 'activa'
   }))
   console.log('📊 DASHBOARD: unidades.value =', unidades.value)
   invitaciones.value = i || []
