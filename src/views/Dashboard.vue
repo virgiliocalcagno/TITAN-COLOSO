@@ -117,14 +117,15 @@ function getBadgeClass(estatus) {
 <template>
   <div class="space-y-6 animate-fade-in-up">
 
-    <div>
-      <h2 class="text-2xl font-bold">Hola, {{ userName.split(" ")[0] }}</h2>
-      <p class="text-white/40 text-sm mt-1">Gestionando {{ stats.unidades }} unidades activas</p>
+    <div class="stat-card bg-gradient-to-br from-titan-600 to-titan-800 border-none">
+       <div class="flex items-center justify-between mb-2">
+         <h2 class="text-xl font-bold text-white">Hola, {{ userName.split(" ")[0] }}</h2>
+         <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+            <User class="w-4 h-4 text-white" />
+         </div>
+       </div>
+       <p class="text-white/70 text-xs">Gestionando {{ stats.unidades }} unidades activas</p>
     </div>
-
-    <router-link to="/generar-qr" class="block w-full py-3 text-center rounded-xl bg-gradient-to-r from-titan-500 to-titan-600 font-semibold shadow-lg shadow-titan-500/30 hover:shadow-titan-500/50 transition-all active:scale-[0.98]">
-      <QrCode class="w-5 h-5 inline mr-2" />Nuevo Acceso
-    </router-link>
 
     <div class="grid grid-cols-2 gap-3">
       <div class="stat-card">
@@ -157,8 +158,8 @@ function getBadgeClass(estatus) {
       </div>
     </div>
 
-    <div class="glass-card p-4">
-      <h3 class="text-sm font-semibold mb-3 text-white/60 uppercase tracking-wider">Mis Propiedades</h3>
+    <div v-if="condominios.length > 1" class="glass-card p-4">
+      <h3 class="text-[10px] font-bold mb-3 text-white/40 uppercase tracking-[0.2em]">Filtrar por Condominio</h3>
       <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
         <button @click="selectedCondominio = 'todos'" class="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all" :class="selectedCondominio === 'todos' ? 'bg-titan-500 text-white shadow-lg shadow-titan-500/30' : 'bg-white/5 text-white/60 hover:bg-white/10'">Todos</button>
         <button v-for="c in condominios" :key="c.id" @click="selectedCondominio = c.id" class="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all" :class="selectedCondominio === c.id ? 'bg-titan-500 text-white shadow-lg shadow-titan-500/30' : 'bg-white/5 text-white/60 hover:bg-white/10'">{{ c.nombre }}</button>
@@ -166,20 +167,28 @@ function getBadgeClass(estatus) {
     </div>
 
     <div class="space-y-3">
-      <h3 class="text-sm font-semibold text-white/60 uppercase tracking-wider px-1">Tus Unidades</h3>
-      <div v-for="u in unidades" :key="u.id" class="glass-card overflow-hidden">
-        <div class="h-32 bg-gradient-to-br from-titan-900/60 to-dark-800 flex items-center justify-center">
-          <Building2 class="w-12 h-12 text-titan-500/30" />
-        </div>
-        <div class="p-4 flex items-center justify-between">
-          <div>
-            <p class="font-bold">{{ u.condominioNombre }} {{ u.numero }}</p>
-            <p class="text-xs text-white/40">ID: {{ u.idDisplay }}</p>
+      <h3 class="text-[10px] font-bold text-white/40 uppercase tracking-[0.2em] px-1">Tus Unidades</h3>
+      <div v-for="u in (selectedCondominio === 'todos' ? unidades : unidades.filter(un => un.condominioId === selectedCondominio))" :key="u.id" 
+        class="glass-card p-4 flex items-center justify-between group hover:border-titan-500/30 transition-all cursor-pointer"
+        @click="$router.push(`/generar-qr?unidadId=${u.id}`)">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-2xl bg-titan-500/10 flex items-center justify-center group-hover:bg-titan-500/20 transition-colors">
+            <Building2 class="w-6 h-6 text-titan-500" />
           </div>
-          <span class="text-xs px-2 py-1 rounded-full font-medium" :class="u.estado === 'activa' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/10 text-white/40'">{{ u.estado.toUpperCase() }}</span>
+          <div>
+            <p class="font-bold text-white leading-tight">{{ u.condominioNombre }}</p>
+            <p class="text-sm text-titan-400 font-medium">{{ u.numero }}</p>
+            <p class="text-[10px] text-white/20 uppercase tracking-widest mt-0.5">ID: {{ u.idDisplay }}</p>
+          </div>
         </div>
-        <div class="px-4 pb-4">
-          <router-link to="/generar-qr" class="block w-full py-2.5 text-center rounded-xl bg-titan-500/20 text-titan-400 font-medium text-sm hover:bg-titan-500/30 transition-colors">Generar Acceso</router-link>
+        <div class="flex flex-col items-end gap-2">
+          <span class="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider" 
+            :class="u.estado === 'activa' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-white/5 text-white/20'">
+            {{ u.estado }}
+          </span>
+          <div class="flex items-center gap-1 text-titan-400 text-xs font-bold uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-opacity">
+            Generar <ArrowUpRight class="w-3 h-3" />
+          </div>
         </div>
       </div>
     </div>

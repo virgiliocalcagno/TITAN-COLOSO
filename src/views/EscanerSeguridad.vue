@@ -122,15 +122,22 @@ async function validarCodigo(codigo) {
     return
   }
 
-  // SEGURIDAD: Pase ya fue utilizado
+  // SEGURIDAD: Pase ya fue utilizado - AHORA SE PERMITE RE-INGRESO SI ESTÁ VIGENTE
   if (inv.estatus === 'Ingresado') {
-    resultado.value = 'invalido'
+    const ahora = new Date()
+    const expira = new Date(inv.fechaExpiracion)
+    
+    if (ahora > expira) {
+      resultado.value = 'expirado'
+      datosEscaneados.value = inv
+      showToast('Este pase ya fue usado y la vigencia expiró.', 'error')
+      return
+    }
+
+    // Si está vigente pero ya se usó, lo tratamos como válido pero avisamos
+    resultado.value = 'valido'
     datosEscaneados.value = inv
-    await registrarActividad({
-      accion: 'Intento con pase YA USADO', visitante: inv.nombreVisitante || 'Desconocido',
-      unidad: inv.unidadNumero || 'N/A', condominio: inv.condominioNombre || 'N/A', hora: 'Ahora', tipo: 'denegado'
-    })
-    showToast('⚠️ Este pase ya fue utilizado anteriormente.', 'warning')
+    showToast('Re-ingreso: Pase ya utilizado anteriormente pero aún vigente.', 'warning')
     return
   }
 

@@ -112,6 +112,17 @@ onMounted(async () => {
       tomorrow.setDate(tomorrow.getDate() + 1)
       fechaExpiracion.value = tomorrow.toISOString().split('T')[0]
       fechaInicio.value = new Date().toISOString().split('T')[0]
+
+      // Auto-selección desde Dashboard si viene unidadId
+      if (route.query.unidadId) {
+        const uId = route.query.unidadId
+        const foundUnit = unidades.value.find(u => u.id === uId)
+        if (foundUnit) {
+          selectedCondominio.value = foundUnit.condominioId
+          selectedUnidad.value = foundUnit.id
+          console.log('✅ Unidad auto-seleccionada:', foundUnit.numero)
+        }
+      }
     }
   } catch (e) {
     console.error('Error in onMounted:', e)

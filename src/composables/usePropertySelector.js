@@ -22,12 +22,12 @@ export async function cargarPropiedades(userId) {
             const existe = propiedades.value.find(p => p.unidad_id === guardada)
             if (existe) {
                 propiedadActiva.value = existe
-            } else if (propiedades.value.length === 1) {
+            } else if (propiedades.value.length > 0) {
+                // Si no existe la guardada, elegimos la primera por defecto
                 seleccionarPropiedad(propiedades.value[0])
-            } else {
-                propiedadActiva.value = null
             }
-        } else if (propiedades.value.length === 1) {
+        } else if (propiedades.value.length > 0) {
+            // Si no hay nada guardado, auto-seleccionar la primera (ahorra pantalla de elección)
             seleccionarPropiedad(propiedades.value[0])
         }
     } catch (e) {
