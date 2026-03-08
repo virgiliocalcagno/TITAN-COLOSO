@@ -24,13 +24,19 @@ async function cargarDatos() {
     getActividadReciente(5)
   ])
   console.log('📊 DASHBOARD: asignaciones recibidas =', asignaciones)
-  condominios.value = c || []
+  
+  // Aislamiento de condominios: solo ver en los que tiene asignación
+  const assignedCondoIds = new Set((asignaciones || []).map(a => a.condominio_id))
+  condominios.value = (c || []).filter(condo => assignedCondoIds.has(condo.id))
+
   // Construir unidades desde asignaciones para compatibilidad
   unidades.value = (asignaciones || []).map(asig => ({
     id: asig.unidad_id,
     condominioId: asig.condominio_id,
     condominioNombre: asig.condominio_nombre || '',
     codigo_unidad: asig.unidad_codigo || '',
+    numero: asig.unidad_codigo || '', // Esperado por la UI
+    idDisplay: asig.unidad_id ? asig.unidad_id.substring(0, 6).toUpperCase() : '', // Esperado por la UI
     agrupadorNombre: asig.agrupador_nombre || '',
     rol_vinculado: asig.rol_vinculado || '',
     propietarioId: asig.usuario_id,
