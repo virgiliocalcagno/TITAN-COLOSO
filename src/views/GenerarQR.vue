@@ -201,7 +201,7 @@ function processImageForOcr(base64) {
       }
     })
     .catch(err => {
-      ocrError.value = 'El OCR falló. Por favor digite los datos manualmente.'
+      ocrError.value = `OCR falló: ${err.message || 'Error desconocido'}. Digite los datos manualmente.`
       console.error('[GenerarQR] Error OCR detallado:', err.message, err)
     })
     .finally(() => {
@@ -631,10 +631,10 @@ function resetFormulario() {
     <div v-if="paso === 3" class="w-full flex-1 flex flex-col">
       
       <!-- Contenedor Maestro para la Captura de Imagen -->
-      <div ref="gafeteRef" class="w-full min-h-screen bg-gradient-to-br from-gray-900 to-black flex flex-col">
-        <!-- Tarjeta del Gafete (Sin bordes laterales/superiores, solo abajo) -->
-        <div class="w-full flex-1 flex flex-col relative overflow-hidden bg-gradient-to-b from-gray-900 to-gray-950 rounded-b-3xl pb-10">
-          <div class="bg-gradient-to-br from-titan-600 via-titan-700 to-purple-900 px-6 pt-10 pb-5 rounded-b-3xl shadow-xl">
+      <div ref="gafeteRef" class="w-full min-h-screen bg-gradient-to-br from-gray-900 to-black p-3 flex flex-col">
+        <!-- Tarjeta del Gafete (Redondeada como credencial real) -->
+        <div class="w-full flex-1 flex flex-col relative overflow-hidden rounded-[2rem] border border-white/10 shadow-2xl bg-gradient-to-b from-gray-900 to-gray-950">
+          <div class="bg-gradient-to-br from-titan-600 via-titan-700 to-purple-900 px-6 py-5">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-3">
                 <div class="w-10 h-10 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
@@ -736,7 +736,7 @@ function resetFormulario() {
           </div>
         </div>
 
-        <div class="bg-gray-950 px-6 py-4 flex flex-col items-center justify-center border-t border-white/5 space-y-1">
+        <div class="bg-gray-950 px-6 py-4 flex flex-col items-center justify-center border-t border-white/5 space-y-1 rounded-b-[2rem]">
           <p class="text-[10px] text-white/40 uppercase tracking-widest">Powered by Virgilio Calcagno</p>
           <p class="text-[9px] text-white/20">virgiliocalcagno@gmail.com</p>
         </div>
