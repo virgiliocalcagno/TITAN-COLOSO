@@ -950,7 +950,12 @@ export async function deleteUsuario(id) {
     const snapAsig = await getDocs(qAsig)
     for (const d of snapAsig.docs) await deleteDoc(d.ref)
 
-    // Finalmente eliminar el documento del usuario
+    // 2. Eliminar invitaciones/pases creados por este usuario
+    const qInv = query(collection(db, 'invitaciones'), where('propietarioId', '==', id))
+    const snapInv = await getDocs(qInv)
+    for (const d of snapInv.docs) await deleteDoc(d.ref)
+
+    // 3. Finalmente eliminar el documento del usuario
     await deleteDoc(doc(db, 'usuarios', id))
 }
 

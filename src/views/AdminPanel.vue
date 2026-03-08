@@ -1126,6 +1126,23 @@ async function guardarEdicionUsuario(id) {
   } catch (e) { alert(e.message) }
 }
 
+async function eliminarUsuarioHandler(id) {
+  if (id === 'admin-god') {
+    alert('No se puede eliminar al Super Administrador principal.')
+    return
+  }
+  if (!confirm('¿ESTÁS ABSOLUTAMENTE SEGURO de eliminar este usuario?\n\nEsta acción:\n1. Eliminará todas sus asignaciones de unidades.\n2. ELIMINARÁ TODOS LOS PASES E INVITACIONES que haya generado.\n3. Es IRREVERSIBLE.')) return
+  
+  try {
+    await deleteUsuario(id)
+    await refreshData()
+    alert('✅ Usuario y toda su actividad asociada eliminados exitosamente')
+  } catch (e) {
+    console.error('Error al eliminar usuario:', e)
+    alert('❌ Error eliminando usuario: ' + e.message)
+  }
+}
+
 async function enviarResetPassword(email) {
   if (!email) return alert('El usuario no tiene un email configurado.')
   if (confirm(`¿Enviar enlace seguro de recuperación de contraseña a ${email}?`)) {
