@@ -1008,7 +1008,7 @@ export async function getAsignaciones() {
         })
     }
     const snap = await getDocs(collection(db, 'asignaciones_unidades'))
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    return snap.docs.map(d => ({ ...d.data(), id: d.id }))
 }
 
 export async function getAsignacionesByUsuario(usuarioId) {
@@ -1026,9 +1026,24 @@ export async function getAsignacionesByUsuario(usuarioId) {
                 }
             })
     }
+    // 1. Buscar directamente por usuario_id
     const q = query(collection(db, 'asignaciones_unidades'), where('usuario_id', '==', usuarioId))
     const snap = await getDocs(q)
-    const asignaciones = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    let asignaciones = snap.docs.map(d => ({ ...d.data(), id: d.id }))
+
+    // 2. Si no hay resultados, el usuario_id podría ser un Firebase Auth UID
+    //    Buscamos el usuario en la colección 'usuarios' por uid o email, luego por su doc ID
+    if (asignaciones.length === 0) {
+        // Buscar el usuario por su uid de Auth
+        const qUser = query(collection(db, 'usuarios'), where('uid', '==', usuarioId))
+        const uSnap = await getDocs(qUser)
+        if (!uSnap.empty) {
+            const userDocId = uSnap.docs[0].id
+            const q2 = query(collection(db, 'asignaciones_unidades'), where('usuario_id', '==', userDocId))
+            const snap2 = await getDocs(q2)
+            asignaciones = snap2.docs.map(d => ({ ...d.data(), id: d.id }))
+        }
+    }
 
     // Enriquecer con datos de unidades y condominios
     for (const a of asignaciones) {
@@ -1067,7 +1082,7 @@ export async function getAsignacionesByUnidad(unidadId) {
     }
     const q = query(collection(db, 'asignaciones_unidades'), where('unidad_id', '==', unidadId))
     const snap = await getDocs(q)
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    return snap.docs.map(d => ({ ...d.data(), id: d.id }))
 }
 
 export async function addAsignacion(data) {
@@ -1089,13 +1104,13 @@ export async function addAsignacion(data) {
 
     const id = `asig-${Date.now().toString(36)}`
     const nueva = {
-        id,
         ...data,
         fecha_inicio: data.fecha_inicio || new Date().toISOString().split('T')[0],
         fecha_fin: data.fecha_fin || null
     }
 
     if (MOCK_MODE) {
+        nueva.id = id
         seedAsignaciones.push(nueva)
         // Actualizar propietarioId en la unidad si es propietario
         if (data.rol_vinculado === 'Propietario') {
@@ -1105,7 +1120,9 @@ export async function addAsignacion(data) {
         return nueva
     }
 
-    await addDoc(collection(db, 'asignaciones_unidades'), nueva)
+    // En Firestore, usar setDoc con ID predecible para que el doc ID coincida
+    await setDoc(doc(db, 'asignaciones_unidades', id), nueva)
+    nueva.id = id
     return nueva
 }
 
