@@ -1,36 +1,87 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
 // Configuración de la IA
-// En caso de que no haya clave, se usará el valor nulo, y se avisará al consumidor
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || ''
+
+/**
+ * Comprime una imagen base64 a un tamaño manejable para la API de Gemini.
+ * Las cámaras de los celulares generan imágenes de 4-12MB que pueden fallar.
+ */
+function comprimirImagen(base64Image, maxWidth = 1024) {
+    return new Promise((resolve) => {
+        const img = new Image()
+        img.onload = () => {
+            const canvas = document.createElement('canvas')
+            let width = img.width
+            let height = img.height
+
+            // Reducir si es muy grande
+            if (width > maxWidth) {
+                height = Math.round((height * maxWidth) / width)
+                width = maxWidth
+            }
+
+            canvas.width = width
+            canvas.height = height
+            const ctx = canvas.getContext('2d')
+            ctx.drawImage(img, 0, 0, width, height)
+
+            // Calidad 0.6 para mantener < 1MB
+            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6)
+            console.log(`[OCR] Imagen comprimida: ${Math.round(compressedBase64.length / 1024)}KB (original: ${Math.round(base64Image.length / 1024)}KB)`)
+            resolve(compressedBase64)
+        }
+        img.onerror = () => {
+            console.warn('[OCR] No se pudo comprimir, usando imagen original')
+            resolve(base64Image)
+        }
+        img.src = base64Image
+    })
+}
 
 export async function extraerDatosDocumento(base64Image) {
     if (!API_KEY) {
         throw new Error('Falta la API Key de Gemini. Por favor configure VITE_GEMINI_API_KEY en su archivo .env.')
     }
 
+    console.log('[OCR] Iniciando análisis con gemini-2.5-flash...')
+    console.log('[OCR] API Key presente:', API_KEY ? 'SÍ (' + API_KEY.substring(0, 8) + '...)' : 'NO')
+
+    // Comprimir imagen antes de enviar
+    const imagenComprimida = await comprimirImagen(base64Image)
+
     const genAI = new GoogleGenerativeAI(API_KEY)
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
     // Limpiar el encabezado data:image/jpeg;base64,
-    const base64Data = base64Image.split(',')[1]
+    const base64Data = imagenComprimida.split(',')[1]
 
-    const prompt = `Analiza el documento de identidad proporcionado en la imagen.
-    Extrae la siguiente información y preséntala estrictamente en formato JSON:
-    {
-      "nombre": "Nombres extraídos",
-      "apellido": "Apellidos extraídos",
-      "documento": "Número de identificación (cédula, ID, pasaporte)",
-      "tipo": "pasaporte" o "cedula" u "otro",
-      "pais_origen": "País emisor del documento, en formato de código de 3 letras (ej. DOM, USA, CAN, etc.)",
-      "nacionalidad": "Nacionalidad de la persona, en formato de código de 3 letras (ej. DOM, USA, CAN, etc.)",
-      "telefono": "Número de teléfono visible en el documento o captura, con formato internacional si es posible",
-      "fechaInicio": "Fecha de inicio de reservación (solo si es Airbnb/Booking/Cita), en formato YYYY-MM-DD",
-      "fechaSalida": "Fecha de salida o de expiración de reservación (solo si aplica), en formato YYYY-MM-DD"
+    if (!base64Data) {
+        throw new Error('La imagen capturada está vacía o en formato inválido.')
     }
-    Instrucciones:
-    - Retorna ÚNICAMENTE el código JSON. Nada de texto adicional, bloques de markdown (como \`\`\`json) o explicaciones.
-    - Si algún campo no se puede leer con seguridad, envía "N/A" para ese campo, excepto el tipo, que por lo menos deberías clasificar.
+
+    console.log('[OCR] Datos base64 listos, tamaño:', Math.round(base64Data.length / 1024), 'KB')
+
+    const prompt = `Analiza detenidamente esta imagen de un documento de identidad. 
+    Tu objetivo es extraer información clave para registrar a un visitante.
+    
+    Responde ÚNICAMENTE en formato JSON con esta estructura:
+    {
+      "nombre": "Nombres (o nombre completo si no se distingue)",
+      "apellido": "Apellidos",
+      "documento": "Número de ID/Pasaporte",
+      "tipo": "pasaporte" o "cedula" u "otro",
+      "pais_origen": "Código ISO de 3 letras del país emisor (ej: DOM, CAN, USA)",
+      "nacionalidad": "Código ISO de 3 letras de la nacionalidad",
+      "telefono": "Número de teléfono si es visible",
+      "fechaInicio": "YYYY-MM-DD",
+      "fechaSalida": "YYYY-MM-DD"
+    }
+
+    Reglas:
+    1. Si no puedes leer un campo, pon "N/A".
+    2. No incluyas explicaciones ni bloques de código (no uses \`\`\`json).
+    3. Si es una licencia de conducir, pon tipo "cedula".
     `
 
     const imageParts = [
@@ -43,15 +94,30 @@ export async function extraerDatosDocumento(base64Image) {
     ]
 
     try {
+        console.log('[OCR] Enviando solicitud a Gemini...')
         const result = await model.generateContent([prompt, ...imageParts])
         const responseText = result.response.text()
 
-        // Limpiar respuesta por si acaso trae markdown
-        const cleanJSON = responseText.replace(/```json/gi, '').replace(/```/gi, '').trim()
-        console.log('AI Response:', cleanJSON)
-        return JSON.parse(cleanJSON)
+        console.log('[OCR] Respuesta cruda de Gemini:', responseText)
+
+        // Limpiador agresivo de JSON
+        let cleanJSON = responseText
+            .replace(/```json/gi, '')
+            .replace(/```/gi, '')
+            .replace(/^\s+|\s+$/g, '')
+            .trim()
+
+        console.log('[OCR] JSON limpio:', cleanJSON)
+        const parsed = JSON.parse(cleanJSON)
+        console.log('[OCR] ✅ Datos extraídos exitosamente:', parsed)
+        return parsed
     } catch (error) {
-        console.error('Error procesando OCR:', error)
-        throw new Error('No se pudo analizar el documento con IA.')
+        console.error('[OCR] ❌ Error completo:', error)
+        console.error('[OCR] ❌ Nombre:', error.name)
+        console.error('[OCR] ❌ Mensaje:', error.message)
+        if (error.response) {
+            console.error('[OCR] ❌ Response status:', error.response.status)
+        }
+        throw new Error(`OCR falló: ${error.message}`)
     }
 }

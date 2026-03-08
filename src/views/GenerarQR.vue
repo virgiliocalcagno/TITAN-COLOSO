@@ -202,7 +202,7 @@ function processImageForOcr(base64) {
     })
     .catch(err => {
       ocrError.value = 'El OCR falló. Por favor digite los datos manualmente.'
-      console.error(err)
+      console.error('[GenerarQR] Error OCR detallado:', err.message, err)
     })
     .finally(() => {
       isOcrProcessing.value = false
