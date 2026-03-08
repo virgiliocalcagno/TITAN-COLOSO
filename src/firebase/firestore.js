@@ -846,13 +846,13 @@ export function validarDocumento(tipo, documento) {
 export async function getUsuarios() {
     if (MOCK_MODE) return seedUsuarios
     const snap = await getDocs(collection(db, 'usuarios'))
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    return snap.docs.map(d => ({ ...d.data(), id: d.id }))
 }
 
 export async function getUsuario(id) {
     if (MOCK_MODE) return seedUsuarios.find(u => u.id === id) || null
     const snap = await getDoc(doc(db, 'usuarios', id))
-    return snap.exists() ? { id: snap.id, ...snap.data() } : null
+    return snap.exists() ? { ...snap.data(), id: snap.id } : null
 }
 
 export async function addUsuario(data) {
@@ -879,21 +879,23 @@ export async function addUsuario(data) {
 
     const id = `usr-${Date.now().toString(36)}`
     const nuevo = {
-        id,
         ...data,
         tipo_documento: tipoDoc,
-        cedula: cleanDoc, // Guardamos en el mismo campo por compatibilidad anterior
+        cedula: cleanDoc,
         estado: 'activo',
         fechaCreacion: new Date().toISOString()
     }
 
     if (MOCK_MODE) {
+        nuevo.id = id
         seedUsuarios.push(nuevo)
         saveToLocal('usuarios', seedUsuarios)
         return nuevo
     }
 
-    await addDoc(collection(db, 'usuarios'), nuevo)
+    // Usar setDoc con ID predecible para que doc ID = id retornado
+    await setDoc(doc(db, 'usuarios', id), nuevo)
+    nuevo.id = id
     return nuevo
 }
 
@@ -1027,21 +1029,42 @@ export async function getAsignacionesByUsuario(usuarioId) {
             })
     }
     // 1. Buscar directamente por usuario_id
+    console.log('🔍 getAsignacionesByUsuario: buscando con usuarioId =', usuarioId)
     const q = query(collection(db, 'asignaciones_unidades'), where('usuario_id', '==', usuarioId))
     const snap = await getDocs(q)
     let asignaciones = snap.docs.map(d => ({ ...d.data(), id: d.id }))
+    console.log('🔍 Resultado búsqueda directa:', asignaciones.length, 'asignaciones')
 
-    // 2. Si no hay resultados, el usuario_id podría ser un Firebase Auth UID
-    //    Buscamos el usuario en la colección 'usuarios' por uid o email, luego por su doc ID
+    // 2. Consolidación de IDs por Email
+    //    Es posible que el usuario esté usando su Auth UID, pero las asignaciones
+    //    fueron creadas bajo un ID antiguo de documento (ej. 'usr-xxx').
     if (asignaciones.length === 0) {
-        // Buscar el usuario por su uid de Auth
-        const qUser = query(collection(db, 'usuarios'), where('uid', '==', usuarioId))
-        const uSnap = await getDocs(qUser)
-        if (!uSnap.empty) {
-            const userDocId = uSnap.docs[0].id
-            const q2 = query(collection(db, 'asignaciones_unidades'), where('usuario_id', '==', userDocId))
-            const snap2 = await getDocs(q2)
-            asignaciones = snap2.docs.map(d => ({ ...d.data(), id: d.id }))
+        // Encontrar el email del usuario
+        let userEmail = null
+        try {
+            const docRef = await getDoc(doc(db, 'usuarios', usuarioId))
+            if (docRef.exists()) {
+                userEmail = docRef.data().email
+            } else {
+                const qUid = query(collection(db, 'usuarios'), where('uid', '==', usuarioId))
+                const uSnap = await getDocs(qUid)
+                if (!uSnap.empty) userEmail = uSnap.docs[0].data().email
+            }
+        } catch (e) { }
+
+        if (userEmail) {
+            // Buscar todos los documentos de usuario que tengan este email (viejos y nuevos)
+            const qUsersByEmail = query(collection(db, 'usuarios'), where('email', '==', userEmail))
+            const usersSnap = await getDocs(qUsersByEmail)
+            const possibleIds = usersSnap.docs.map(d => d.id)
+
+            // Buscar asignaciones para cualquiera de estos IDs
+            if (possibleIds.length > 0) {
+                // Firebase restringe queries 'in' a 10 items máximo, pero es suficiente
+                const q2 = query(collection(db, 'asignaciones_unidades'), where('usuario_id', 'in', possibleIds.slice(0, 10)))
+                const snap2 = await getDocs(q2)
+                asignaciones = snap2.docs.map(d => ({ ...d.data(), id: d.id }))
+            }
         }
     }
 
@@ -1127,6 +1150,7 @@ export async function addAsignacion(data) {
 }
 
 export async function removeAsignacion(id) {
+    console.log('🔴 INTENTANDO BORRAR ASIGNACIÓN CON ID:', id)
     if (MOCK_MODE) {
         const asig = seedAsignaciones.find(a => a.id === id)
         if (asig && asig.rol_vinculado === 'Propietario') {
@@ -1137,6 +1161,7 @@ export async function removeAsignacion(id) {
         return true
     }
     await deleteDoc(doc(db, 'asignaciones_unidades', id))
+    console.log('✅ deleteDoc EJECUTADO ESTRICTAMENTE PARA', id)
 }
 
 export async function editarAsignacion(id, data) {

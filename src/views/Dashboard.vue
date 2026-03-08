@@ -16,12 +16,14 @@ const selectedCondominio = ref('todos')
 const isLoading = ref(true)
 
 async function cargarDatos() {
+  console.log('📊 DASHBOARD: userId.value =', userId.value)
   const [c, asignaciones, i, a] = await Promise.all([
     getCondominios(),
     getAsignacionesByUsuario(userId.value),
     getInvitacionesByPropietario(userId.value),
     getActividadReciente(5)
   ])
+  console.log('📊 DASHBOARD: asignaciones recibidas =', asignaciones)
   condominios.value = c || []
   // Construir unidades desde asignaciones para compatibilidad
   unidades.value = (asignaciones || []).map(asig => ({
@@ -33,6 +35,7 @@ async function cargarDatos() {
     rol_vinculado: asig.rol_vinculado || '',
     propietarioId: asig.usuario_id
   }))
+  console.log('📊 DASHBOARD: unidades.value =', unidades.value)
   invitaciones.value = i || []
   actividad.value = a || []
   isLoading.value = false
