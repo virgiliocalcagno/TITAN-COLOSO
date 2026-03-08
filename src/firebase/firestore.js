@@ -156,9 +156,20 @@ export async function getUnidades() {
 
 export async function getUnidadesByPropietario(propietarioId) {
     if (MOCK_MODE) return seedUnidades.filter(u => u.propietarioId === propietarioId)
-    const q = query(collection(db, 'unidades'), where('propietarioId', '==', propietarioId))
-    const snap = await getDocs(q)
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    const asignaciones = await getAsignacionesByUsuario(propietarioId)
+    return asignaciones.map(a => ({
+        id: a.unidad_id,
+        condominioId: a.condominio_id,
+        condominioNombre: a.condominio_nombre,
+        agrupadorId: a.agrupador_id,
+        agrupadorNombre: a.agrupador_nombre,
+        codigo_unidad: a.unidad_codigo,
+        numero: a.unidad_codigo, // compatibilidad con GenerarQR
+        idDisplay: a.unidad_id ? a.unidad_id.substring(0, 6).toUpperCase() : '',
+        estado: 'activa',
+        propietarioId: a.usuario_id,
+        rol_vinculado: a.rol_vinculado
+    }))
 }
 
 export async function getUnidadesByCondominio(condominioId) {

@@ -69,11 +69,14 @@ const esLogistica = computed(() => ['Mudanza', 'Servicio'].includes(tipoVisitant
 onMounted(async () => {
   isLoading.value = true
   try {
-    condominios.value = await getCondominios() || []
+    const allCondos = await getCondominios() || []
     if (isAdmin.value) {
+      condominios.value = allCondos
       unidades.value = await getUnidades() || []
     } else {
       unidades.value = await getUnidadesByPropietario(userId.value) || []
+      const assignedCondoIds = new Set(unidades.value.map(u => u.condominioId))
+      condominios.value = allCondos.filter(c => assignedCondoIds.has(c.id))
     }
     if (route.query.edit) {
       editandoId.value = route.query.edit
