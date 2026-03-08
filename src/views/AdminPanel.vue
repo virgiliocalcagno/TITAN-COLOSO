@@ -461,9 +461,9 @@
       <div class="flex gap-2">
         <button @click="userRoleFilter = ''" :class="!userRoleFilter ? 'bg-cyan-600 text-white' : 'bg-gray-800/50 text-gray-400 border border-gray-700/40'"
           class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all">Todos</button>
-        <button v-for="r in ['propietario', 'inquilino', 'vigilante', 'admin']" :key="r" @click="userRoleFilter = r"
+        <button v-for="r in ['propietario', 'property_manager', 'inquilino', 'vigilante', 'admin']" :key="r" @click="userRoleFilter = r"
           :class="userRoleFilter === r ? 'bg-cyan-600 text-white' : 'bg-gray-800/50 text-gray-400 border border-gray-700/40'"
-          class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all capitalize">{{ r }}</button>
+          class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all capitalize">{{ r === 'property_manager' ? 'P. Manager' : r }}</button>
       </div>
 
       <!-- Lista de Usuarios -->
@@ -500,7 +500,7 @@
           <!-- View mode -->
           <div v-else class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold"
-              :class="u.rol === 'admin' ? 'bg-red-500/20 text-red-300' : u.rol === 'propietario' ? 'bg-emerald-500/20 text-emerald-300' : u.rol === 'inquilino' ? 'bg-amber-500/20 text-amber-300' : 'bg-blue-500/20 text-blue-300'">
+              :class="u.role === 'admin' ? 'bg-red-500/20 text-red-300' : u.role === 'propietario' ? 'bg-emerald-500/20 text-emerald-300' : u.role === 'property_manager' ? 'bg-purple-500/20 text-purple-300' : u.role === 'inquilino' ? 'bg-amber-500/20 text-amber-300' : 'bg-blue-500/20 text-blue-300'">
               {{ u.nombre[0] }}{{ u.apellido[0] }}
             </div>
             <div class="flex-1 min-w-0">
@@ -510,10 +510,10 @@
             </div>
             <div class="flex flex-col items-end gap-1">
               <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold capitalize"
-                :class="u.rol === 'admin' ? 'bg-red-500/20 text-red-300' : u.rol === 'propietario' ? 'bg-emerald-500/20 text-emerald-300' : u.rol === 'inquilino' ? 'bg-amber-500/20 text-amber-300' : 'bg-blue-500/20 text-blue-300'">
-                {{ u.rol }}
+                :class="u.role === 'admin' ? 'bg-red-500/20 text-red-300' : u.role === 'propietario' ? 'bg-emerald-500/20 text-emerald-300' : u.role === 'property_manager' ? 'bg-purple-500/20 text-purple-300' : u.role === 'inquilino' ? 'bg-amber-500/20 text-amber-300' : 'bg-blue-500/20 text-blue-300'">
+                {{ u.role === 'property_manager' ? 'P. Manager' : u.role }}
               </span>
-              <div v-if="u.rol !== 'admin'" class="flex gap-1">
+              <div v-if="u.role !== 'admin'" class="flex gap-1">
                 <button @click="startEditUser(u)" class="text-cyan-400/40 hover:text-cyan-400 transition-colors p-0.5" title="Editar">
                   <Pencil :size="13" />
                 </button>
