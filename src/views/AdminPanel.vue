@@ -517,7 +517,7 @@
                 <button @click="startEditUser(u)" class="text-cyan-400/40 hover:text-cyan-400 transition-colors p-0.5" title="Editar">
                   <Pencil :size="13" />
                 </button>
-                <button @click="eliminarUsuarioHandler(u.id)" class="text-red-400/40 hover:text-red-400 transition-colors p-0.5" title="Eliminar">
+                <button @click="confirmarBorradoUsuario(u)" class="text-red-400/40 hover:text-red-400 transition-colors p-0.5" title="Eliminar">
                   <Trash2 :size="13" />
                 </button>
               </div>
@@ -1126,23 +1126,6 @@ async function guardarEdicionUsuario(id) {
   } catch (e) { alert(e.message) }
 }
 
-async function eliminarUsuarioHandler(id) {
-  if (id === 'admin-god') {
-    alert('No se puede eliminar al Super Administrador principal.')
-    return
-  }
-  if (!confirm('¿ESTÁS ABSOLUTAMENTE SEGURO de eliminar este usuario?\n\nEsta acción:\n1. Eliminará todas sus asignaciones de unidades.\n2. ELIMINARÁ TODOS LOS PASES E INVITACIONES que haya generado.\n3. Es IRREVERSIBLE.')) return
-  
-  try {
-    await deleteUsuario(id)
-    await refreshData()
-    alert('✅ Usuario y toda su actividad asociada eliminados exitosamente')
-  } catch (e) {
-    console.error('Error al eliminar usuario:', e)
-    alert('❌ Error eliminando usuario: ' + e.message)
-  }
-}
-
 async function enviarResetPassword(email) {
   if (!email) return alert('El usuario no tiene un email configurado.')
   if (confirm(`¿Enviar enlace seguro de recuperación de contraseña a ${email}?`)) {
@@ -1377,7 +1360,13 @@ async function refreshData() {
   agrupadores.value = await getAgrupadores()
   usuarios.value = await getUsuarios()
   asignaciones.value = await getAsignaciones()
-  stats.value = getAdminStats()
+  stats.value = {
+    totalCondominios: condominios.value.length,
+    totalUnidades: unidades.value.length,
+    totalAgrupadores: agrupadores.value.length,
+    totalUsuarios: usuarios.value.length,
+    totalAsignaciones: asignaciones.value.length
+  }
 }
 
 onMounted(refreshData)
