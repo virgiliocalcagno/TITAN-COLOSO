@@ -95,6 +95,8 @@ export function useFirestore() {
         loading,
         error,
         // Condominios
+        getCondominios,
+        getCondominio,
         addCondominio,
         updateCondominio,
         deleteCondominio,

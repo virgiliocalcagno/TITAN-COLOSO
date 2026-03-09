@@ -227,28 +227,37 @@ export async function createInvitacion(data) {
 export async function getInvitacionesByPropietario(propietarioId) {
     if (MOCK_MODE) return seedInvitaciones.filter(i => i.propietarioId === propietarioId)
 
+    console.log('🔍 getInvitacionesByPropietario: buscando con propietarioId =', propietarioId)
     // 1. Intentar por ID directo
     const q = query(collection(db, 'invitaciones'), where('propietarioId', '==', propietarioId))
     const snap = await getDocs(q)
     let result = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    console.log('🔍 getInvitacionesByPropietario: búsqueda directa =', result.length)
 
     // 2. Fallback por Email si no hay resultados (para UIDs nuevos vs IDs viejos)
     if (result.length === 0) {
         let email = null
-        const uDoc = await getDoc(doc(db, 'usuarios', propietarioId))
-        if (uDoc.exists()) email = uDoc.data().email
-        else {
-            const uSnap = await getDocs(query(collection(db, 'usuarios'), where('uid', '==', propietarioId)))
-            if (!uSnap.empty) email = uSnap.docs[0].data().email
+        try {
+            const uDoc = await getDoc(doc(db, 'usuarios', propietarioId))
+            if (uDoc.exists()) email = uDoc.data().email
+            else {
+                const uSnap = await getDocs(query(collection(db, 'usuarios'), where('uid', '==', propietarioId)))
+                if (!uSnap.empty) email = uSnap.docs[0].data().email
+            }
+        } catch (e) {
+            console.warn('⚠️ Error obteniendo email para fallback:', e.message)
         }
 
         if (email) {
+            console.log('🔍 getInvitacionesByPropietario: intentando fallback por email =', email)
             const usersSnap = await getDocs(query(collection(db, 'usuarios'), where('email', '==', email)))
             const ids = usersSnap.docs.map(d => d.id)
             if (ids.length > 0) {
+                console.log('🔍 getInvitacionesByPropietario: IDs encontrados para email =', ids)
                 const q2 = query(collection(db, 'invitaciones'), where('propietarioId', 'in', ids.slice(0, 10)))
                 const snap2 = await getDocs(q2)
                 result = snap2.docs.map(d => ({ id: d.id, ...d.data() }))
+                console.log('🔍 getInvitacionesByPropietario: resultado fallback =', result.length)
             }
         }
     }
@@ -411,8 +420,7 @@ export async function getActividadByUnidades(unidadIds, unidadNombres = [], limi
     // Buscar actividad que tenga unidadId (registros nuevos enriquecidos)
     const q = query(
         collection(db, 'actividad'),
-        where('unidadId', 'in', idsSlice),
-        orderBy('createdAt', 'desc')
+        where('unidadId', 'in', idsSlice)
     )
     const snap = await getDocs(q)
     let results = snap.docs.map(d => ({ id: d.id, ...d.data() }))
@@ -422,8 +430,7 @@ export async function getActividadByUnidades(unidadIds, unidadNombres = [], limi
         const nombresSlice = unidadNombres.slice(0, 30)
         const q2 = query(
             collection(db, 'actividad'),
-            where('unidad', 'in', nombresSlice),
-            orderBy('createdAt', 'desc')
+            where('unidad', 'in', nombresSlice)
         )
         const snap2 = await getDocs(q2)
         const existingIds = new Set(results.map(r => r.id))
