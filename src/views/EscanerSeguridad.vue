@@ -105,8 +105,11 @@ function isPointInCircle(point, circle) {
 }
 
 onMounted(async () => {
-  condominios.value = await getCondominios() || []
-  unidades.value = await getUnidades() || []
+  // Carga paralela para evitar que un timeout bloquee todo el componente
+  Promise.allSettled([
+    getCondominios().then(res => condominios.value = res || []),
+    getUnidades().then(res => unidades.value = res || [])
+  ])
   
   unsubscribeGeocercas = subscribeToGeocercas((data) => {
      geocercas.value = data
@@ -392,9 +395,14 @@ function resetDelivery() {
       </div>
     </Transition>
 
-    <div class="text-center">
+    <div class="text-center relative">
       <h2 class="text-xl font-bold">GARITA - CONTROL DE ACCESO</h2>
       <p class="text-white/40 text-xs mt-1">TITAN COLOSO V2.4</p>
+      <!-- Indicador de Sincronización Silenciosa -->
+      <div v-if="loading" class="absolute -top-1 right-0 flex items-center gap-1.5 px-2 py-1 rounded-lg bg-titan-500/10 border border-titan-500/20 animate-pulse">
+        <Loader2 class="w-3 h-3 text-titan-400 animate-spin" />
+        <span class="text-[9px] text-titan-400 font-bold uppercase tracking-tighter">Sincronizando</span>
+      </div>
     </div>
 
     <!-- POI Selector & GPS Status -->
