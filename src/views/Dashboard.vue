@@ -6,7 +6,8 @@ import { Building2, Users, QrCode, ShieldCheck, TrendingUp, ArrowUpRight, Clock,
 import QRCode from 'qrcode'
 
 const { userId, userName } = useAuth()
-const { getCondominios, getUnidadesByPropietario, getInvitacionesByPropietario, getActividadByUnidades, anularInvitacion, getAsignacionesByUsuario } = useFirestore()
+const { getCondominios, getInvitacionesByPropietario, anularInvitacion, getAsignacionesByUsuario, getActividadByUnidades } = useFirestore()
+const { propiedades, cargarPropiedades } = usePropertySelector()
 
 const condominios = ref([])
 const unidades = ref([])
@@ -28,12 +29,8 @@ async function cargarDatos() {
     const asignaciones = asigRaw || []
     console.log('📊 DASHBOARD: Datos recibidos:', { condominios: c?.length, asignaciones: asignaciones.length, invitaciones: i?.length })
     
-    // Aislamiento de condominios: solo ver en los que tiene asignación
-    const assignedCondoIds = new Set(asignaciones.map(a => a.condominio_id))
-    condominios.value = (c || []).filter(condo => assignedCondoIds.has(condo.id))
-
-    // Construir unidades desde asignaciones para compatibilidad
-    unidades.value = asignaciones.map(asig => ({
+    // Sincronizar con el selector global para que la cabecera y el cuerpo coincidan
+    unidades.value = (asignaciones.length > 0 ? asignaciones : propiedades.value).map(asig => ({
       id: asig.unidad_id,
       condominioId: asig.condominio_id,
       condominioNombre: asig.condominio_nombre || 'Condominio Desconocido',
@@ -45,6 +42,10 @@ async function cargarDatos() {
       propietarioId: asig.usuario_id,
       estado: 'activa'
     }))
+
+    // Aislamiento de condominios: solo ver en los que tiene asignación
+    const assignedCondoIds = new Set(unidades.value.map(u => u.condominioId))
+    condominios.value = (c || []).filter(condo => assignedCondoIds.has(condo.id))
     
     console.log('📊 DASHBOARD: Unidades procesadas:', unidades.value.length)
     invitaciones.value = i || []
@@ -70,7 +71,16 @@ async function cargarDatos() {
   }
 }
 
-onMounted(cargarDatos)
+// Watcher para re-cargar cuando el usuario esté disponible
+watch(() => userId.value, (newId) => {
+  if (newId) {
+    cargarDatos()
+  }
+}, { immediate: true })
+
+onMounted(() => {
+  if (userId.value) cargarDatos()
+})
 
 const selectedInv = ref(null)
 const selectedInvQR = ref('')
