@@ -10,60 +10,50 @@ const { userId, userName } = useAuth()
 const { getCondominios, getInvitacionesByPropietario, anularInvitacion, getAsignacionesByUsuario, getActividadByUnidades } = useFirestore()
 const { propiedades, cargarPropiedades } = usePropertySelector()
 
-const condominios = ref([])
-const unidades = ref([])
+const allCondos = ref([])
 const invitaciones = ref([])
 const actividad = ref([])
 const selectedCondominio = ref('todos')
 const isLoading = ref(true)
 
+// Sincronización PROFUNDA: Las unidades SIEMPRE vienen del estado global
+const unidades = computed(() => {
+  return propiedades.value.map(asig => ({
+    id: asig.unidad_id,
+    condominioId: asig.condominio_id,
+    condominioNombre: asig.condominio_nombre || 'Condominio Desconocido',
+    codigo_unidad: asig.unidad_codigo || (asig.unidad_id ? `Unidad ${asig.unidad_id.substring(0,4)}` : 'S/N'),
+    numero: asig.unidad_codigo || 'S/N',
+    idDisplay: asig.unidad_id ? asig.unidad_id.substring(0, 6).toUpperCase() : 'ERR',
+    agrupadorNombre: asig.agrupador_nombre || '',
+    rol_vinculado: asig.rol_vinculado || 'Residente',
+    propietarioId: asig.usuario_id,
+    estado: 'activa'
+  }))
+})
+
+// Condominios filtrados dinámicamente según las unidades asignadas
+const condominios = computed(() => {
+  const assignedCondoIds = new Set(unidades.value.map(u => u.condominioId))
+  return allCondos.value.filter(condo => assignedCondoIds.has(condo.id))
+})
+
 async function cargarDatos() {
-  console.log('📊 DASHBOARD: Iniciando carga para userId:', userId.value)
+  if (!userId.value) return
+  console.log('📊 DASHBOARD: Cargando pases y condominios...')
   isLoading.value = true
   try {
-    const [c, asigRaw, i] = await Promise.all([
+    const [c, i] = await Promise.all([
       getCondominios().catch(e => { console.error('❌ Error Condominios:', e); return [] }),
-      getAsignacionesByUsuario(userId.value).catch(e => { console.error('❌ Error Asignaciones:', e); return [] }),
       getInvitacionesByPropietario(userId.value).catch(e => { console.error('❌ Error Invitaciones:', e); return [] })
     ])
 
-    const asignaciones = asigRaw || []
-    console.log('📊 DASHBOARD: Datos recibidos:', { condominios: c?.length, asignaciones: asignaciones.length, invitaciones: i?.length })
-    
-    // Sincronizar con el selector global para que la cabecera y el cuerpo coincidan
-    unidades.value = (asignaciones.length > 0 ? asignaciones : propiedades.value).map(asig => ({
-      id: asig.unidad_id,
-      condominioId: asig.condominio_id,
-      condominioNombre: asig.condominio_nombre || 'Condominio Desconocido',
-      codigo_unidad: asig.unidad_codigo || (asig.unidad_id ? `Unidad ${asig.unidad_id.substring(0,4)}` : 'S/N'),
-      numero: asig.unidad_codigo || 'S/N',
-      idDisplay: asig.unidad_id ? asig.unidad_id.substring(0, 6).toUpperCase() : 'ERR',
-      agrupadorNombre: asig.agrupador_nombre || '',
-      rol_vinculado: asig.rol_vinculado || 'Residente',
-      propietarioId: asig.usuario_id,
-      estado: 'activa'
-    }))
-
-    // Aislamiento de condominios: solo ver en los que tiene asignación
-    const assignedCondoIds = new Set(unidades.value.map(u => u.condominioId))
-    condominios.value = (c || []).filter(condo => assignedCondoIds.has(condo.id))
-    
-    console.log('📊 DASHBOARD: Unidades procesadas:', unidades.value.length)
+    allCondos.value = c || []
     invitaciones.value = i || []
-
-    // 🔒 PRIVACIDAD: Solo cargar actividad de MIS unidades asignadas
-    const misUnidadIds = unidades.value.map(u => u.id).filter(Boolean)
-    const misUnidadNombres = unidades.value.map(u => u.codigo_unidad || u.numero).filter(Boolean)
     
-    if (misUnidadIds.length > 0) {
-      try {
-        actividad.value = await getActividadByUnidades(misUnidadIds, misUnidadNombres, 10) || []
-      } catch (actError) {
-        console.warn('⚠️ Error al cargar actividad (posible falta de índice):', actError.message)
-        actividad.value = []
-      }
-    } else {
-      actividad.value = []
+    // Cargar actividad si hay unidades disponibles
+    if (unidades.value.length > 0) {
+      await cargarActividad()
     }
   } catch (globalError) {
     console.error('💥 Error crítico en Dashboard:', globalError)
@@ -72,11 +62,29 @@ async function cargarDatos() {
   }
 }
 
-// Watcher para re-cargar cuando el usuario esté disponible
-watch(() => userId.value, (newId) => {
-  if (newId) {
-    cargarDatos()
+async function cargarActividad() {
+  const misUnidadIds = unidades.value.map(u => u.id).filter(Boolean)
+  const misUnidadNombres = unidades.value.map(u => u.codigo_unidad || u.numero).filter(Boolean)
+  
+  if (misUnidadIds.length > 0) {
+    try {
+      actividad.value = await getActividadByUnidades(misUnidadIds, misUnidadNombres, 10) || []
+    } catch (actError) {
+      console.warn('⚠️ Error al cargar actividad:', actError.message)
+      actividad.value = []
+    }
   }
+}
+
+// Watchers para reaccionar a cambios de datos globales
+watch(unidades, (newVal) => {
+  if (newVal.length > 0 && !actividad.value.length) {
+    cargarActividad()
+  }
+}, { immediate: true })
+
+watch(() => userId.value, (newId) => {
+  if (newId) cargarDatos()
 }, { immediate: true })
 
 onMounted(() => {
