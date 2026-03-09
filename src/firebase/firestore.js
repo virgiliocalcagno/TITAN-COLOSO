@@ -512,7 +512,9 @@ export async function deleteCondominio(id, force = false) {
         // 5. Eliminar Agrupadores
         const qAgr = query(collection(db, 'agrupadores'), where('condominioId', '==', id))
         const snapAgr = await getDocs(qAgr)
-        for (const d of snapAgr.docs) await deleteDoc(d.ref)
+        for (const d of snapAgr.docs) {
+            await deleteAgrupador(d.id, true) // Recursivo con force
+        }
     }
 
     // Finalmente eliminar el condominio
@@ -546,12 +548,28 @@ export async function addAgrupador(data) {
     return { id: docRef.id, ...data }
 }
 
-export async function deleteAgrupador(id) {
-    const tieneUnidades = seedUnidades.some(u => u.agrupadorId === id)
-    if (tieneUnidades) throw new Error('No se puede eliminar: contiene unidades. Elimine las unidades primero.')
+export async function deleteAgrupador(id, force = false) {
     if (MOCK_MODE) {
+        if (!force) {
+            const tieneUnidades = seedUnidades.some(u => u.agrupadorId === id)
+            if (tieneUnidades) throw new Error('No se puede eliminar: contiene unidades.')
+        } else {
+            seedUnidades = seedUnidades.filter(u => u.agrupadorId !== id)
+        }
         seedAgrupadores = seedAgrupadores.filter(a => a.id !== id)
+        saveToLocal('agrupadores', seedAgrupadores)
+        saveToLocal('unidades', seedUnidades)
         return true
+    }
+
+    if (!force) {
+        const q = query(collection(db, 'unidades'), where('agrupadorId', '==', id))
+        const snap = await getDocs(q)
+        if (!snap.empty) throw new Error('No se puede eliminar: contiene unidades.')
+    } else {
+        const q = query(collection(db, 'unidades'), where('agrupadorId', '==', id))
+        const snap = await getDocs(q)
+        for (const d of snap.docs) await deleteDoc(d.ref)
     }
     await deleteDoc(doc(db, 'agrupadores', id))
 }

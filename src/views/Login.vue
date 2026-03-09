@@ -36,6 +36,8 @@ async function handleLogin() {
     const user = await login(email.value, password.value)
     if (user.role === 'vigilante') {
       router.push('/escaner')
+    } else if (user.role === 'admin') {
+      router.push('/super-admin')
     } else {
       router.push('/dashboard')
     }

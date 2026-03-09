@@ -55,7 +55,23 @@ const deliveryCanSend = computed(() => deliveryCondoId.value && deliveryUnidadId
 // ---- GEOCERCA GPS ---
 const geocercas = ref([])
 const ubicacionGuardia = ref(null)
+const selectedPOI = ref('') // Garita seleccionada
 let watchGpsId = null
+
+const pois = computed(() => geocercas.value.filter(g => g.tipo === 'marker'))
+
+const isInSecureZone = computed(() => {
+    if (!ubicacionGuardia.value || geocercas.value.length === 0) return false
+    // Solo validamos perímetros (polígonos/círculos)
+    const perimetros = geocercas.value.filter(g => g.tipo !== 'marker')
+    if (perimetros.length === 0) return true // Si no hay áreas definidas, permitimos todo por ahora
+
+    return perimetros.some(p => {
+        if (p.tipo === 'circle') return isPointInCircle(ubicacionGuardia.value, p.geometria)
+        if (p.tipo === 'polygon') return isPointInPolygon(ubicacionGuardia.value, p.geometria)
+        return false
+    })
+})
 
 function isPointInPolygon(point, vs) {
     let x = point.lat, y = point.lng
@@ -145,7 +161,8 @@ async function validarCodigo(codigo) {
     datosEscaneados.value = null
     await registrarActividad({
       accion: 'Acceso denegado', visitante: 'Desconocido',
-      unidad: 'N/A', condominio: 'N/A', hora: 'Ahora', tipo: 'denegado'
+      unidad: 'N/A', condominio: 'N/A', hora: 'Ahora', tipo: 'denegado',
+      lugarEscaneo: selectedPOI.value || 'Fuera de zona'
     })
     showToast('Código QR no reconocido en el sistema', 'error')
     return
@@ -157,7 +174,9 @@ async function validarCodigo(codigo) {
     datosEscaneados.value = inv
     await registrarActividad({
       accion: 'Intento con pase ANULADO', visitante: inv.nombreVisitante || 'Desconocido',
-      unidad: inv.unidadNumero || 'N/A', condominio: inv.condominioNombre || 'N/A', hora: 'Ahora', tipo: 'denegado'
+      unidad: inv.unidadNumero || 'N/A', condominio: inv.condominioNombre || 'N/A', hora: 'Ahora', tipo: 'denegado',
+      lugarEscaneo: selectedPOI.value || 'Fuera de zona',
+      fotoDocumento: inv.qrData?.fotoDocumento
     })
     showToast('⛔ Este pase fue ANULADO. QR inválido.', 'error')
     return
@@ -195,6 +214,7 @@ async function validarCodigo(codigo) {
   // Solo pases con estatus 'Pendiente' pasan como válidos
   resultado.value = 'valido'
   datosEscaneados.value = inv
+  // NO registramos actividad aquí, se hace al presionar 'Aprobar Acceso' en la UI
   showToast('Código verificado exitosamente', 'success')
 }
 
@@ -227,7 +247,7 @@ async function aprobarAcceso() {
          visitante: datosEscaneados.value?.nombreVisitante || 'Desconocido',
          unidad: datosEscaneados.value?.unidadNumero || 'N/A',
          unidadId: datosEscaneados.value?.unidadId || null,
-         condominio: datosEscaneados.value?.condominioNombre || 'N/A',
+         condominioNombre: datosEscaneados.value?.condominioNombre || 'N/A',
          condominioId: datosEscaneados.value?.condominioId || null,
          propietarioId: datosEscaneados.value?.propietarioId || null,
          hora: 'Ahora', tipo: 'denegado'
@@ -244,10 +264,12 @@ async function aprobarAcceso() {
       visitante: datosEscaneados.value.nombreVisitante,
       unidad: datosEscaneados.value.unidadNumero,
       unidadId: datosEscaneados.value.unidadId || null,
-      condominio: datosEscaneados.value.condominioNombre,
+      condominioNombre: datosEscaneados.value.condominioNombre,
       condominioId: datosEscaneados.value.condominioId || null,
       propietarioId: datosEscaneados.value.propietarioId || null,
-      hora: 'Ahora', tipo: 'entrada'
+      hora: 'Ahora', tipo: 'entrada',
+      lugarEscaneo: selectedPOI.value,
+      fotoDocumento: datosEscaneados.value.qrData?.fotoDocumento || datosEscaneados.value.fotoDocumento
     })
   }
   showToast('✅ Acceso registrado. Notificación enviada al propietario.', 'success')
@@ -260,10 +282,12 @@ async function denegarAcceso() {
     visitante: datosEscaneados.value?.nombreVisitante || 'Desconocido',
     unidad: datosEscaneados.value?.unidadNumero || 'N/A',
     unidadId: datosEscaneados.value?.unidadId || null,
-    condominio: datosEscaneados.value?.condominioNombre || 'N/A',
+    condominioNombre: datosEscaneados.value?.condominioNombre || 'N/A',
     condominioId: datosEscaneados.value?.condominioId || null,
     propietarioId: datosEscaneados.value?.propietarioId || null,
-    hora: 'Ahora', tipo: 'denegado'
+    hora: 'Ahora', tipo: 'denegado',
+    lugarEscaneo: selectedPOI.value,
+    fotoDocumento: datosEscaneados.value?.qrData?.fotoDocumento || datosEscaneados.value?.fotoDocumento
   })
   showToast('❌ Acceso denegado. Propietario notificado.', 'error')
   setTimeout(() => resetEscaneo(), 2000)
@@ -367,7 +391,36 @@ function resetDelivery() {
       <p class="text-white/40 text-xs mt-1">TITAN COLOSO V2.4</p>
     </div>
 
-    <!-- Scanner View -->
+    <!-- POI Selector & GPS Status -->
+    <div class="glass-card p-4 space-y-4">
+      <div class="space-y-2">
+        <label class="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+          <MapPin :size="14" class="text-amber-500" /> Seleccionar Garita / Entrada
+        </label>
+        <select v-model="selectedPOI" class="w-full bg-dark-900 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-titan-500 focus:outline-none appearance-none">
+          <option value="">Seleccione su puesto...</option>
+          <option v-for="p in pois" :key="p.id" :value="p.nombre">{{ p.nombre }}</option>
+        </select>
+      </div>
+
+      <div class="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">
+        <div class="flex items-center gap-3">
+          <div class="w-2 h-2 rounded-full" :class="ubicacionGuardia ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'"></div>
+          <span class="text-xs font-medium text-white/70">GPS: {{ ubicacionGuardia ? 'Conectado' : 'Buscando...' }}</span>
+        </div>
+        <div class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tighter"
+          :class="isInSecureZone ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'">
+          {{ isInSecureZone ? 'Dentro de Perímetro' : 'Fuera de Zona' }}
+        </div>
+      </div>
+
+      <div v-if="!isInSecureZone" class="p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3">
+        <AlertTriangle class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+        <p class="text-xs text-red-200/80 leading-relaxed">
+          <strong>Acceso Bloqueado:</strong> Debe desplazarse al área de control autorizada para habilitar el escaneo.
+        </p>
+      </div>
+    </div>
     <div v-if="!showDeliveryPulse" class="glass-card overflow-hidden">
       <div class="relative aspect-square bg-dark-900 flex items-center justify-center">
         <!-- Idle -->
@@ -379,7 +432,11 @@ function resetDelivery() {
             <p class="text-lg font-semibold">Listo para escanear</p>
             <p class="text-sm text-white/40 mt-1">Alinear código QR dentro del marco</p>
           </div>
-          <button @click="iniciarEscaneo" class="btn-primary mt-2">Iniciar Escaneo</button>
+          <button @click="iniciarEscaneo" 
+            :disabled="!selectedPOI || !isInSecureZone"
+            class="btn-primary mt-2 disabled:bg-white/5 disabled:text-white/20 disabled:shadow-none">
+            {{ !selectedPOI ? 'Seleccione Garita' : (!isInSecureZone ? 'Fuera de Perímetro' : 'Iniciar Escaneo') }}
+          </button>
         </div>
 
         <!-- Active Scanner -->
@@ -427,8 +484,12 @@ function resetDelivery() {
     <div v-if="showManualEntry && !scanning && !resultado" class="glass-card p-4 space-y-3">
       <label class="text-xs font-semibold text-white/60 uppercase tracking-wider">Código de Acceso</label>
       <div class="flex gap-2">
-        <input v-model="manualCode" type="text" placeholder="TITAN-WS-G44-..." class="input-field flex-1" @keyup.enter="buscarManual" />
-        <button @click="buscarManual" class="btn-primary px-4">Verificar</button>
+        <input v-model="manualCode" type="text" placeholder="TITAN-WS-G44-..." 
+          :disabled="!selectedPOI || !isInSecureZone"
+          class="input-field flex-1 disabled:opacity-50" @keyup.enter="buscarManual" />
+        <button @click="buscarManual" 
+          :disabled="!selectedPOI || !isInSecureZone || !manualCode"
+          class="btn-primary px-4 disabled:bg-white/5 disabled:text-white/20">Verificar</button>
       </div>
     </div>
 

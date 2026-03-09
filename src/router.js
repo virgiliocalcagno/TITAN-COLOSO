@@ -44,6 +44,10 @@ const router = createRouter({
             name: 'super-admin',
             component: SuperAdminDesktop,
             meta: { requiresAuth: true, roles: ['admin'] }
+        },
+        {
+            path: '/:pathMatch(.*)*',
+            redirect: '/login'
         }
     ]
 })

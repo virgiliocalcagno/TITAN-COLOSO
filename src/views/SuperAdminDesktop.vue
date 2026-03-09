@@ -57,51 +57,120 @@
       <!-- Scrollable Tab Content -->
       <div class="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
         <div class="max-w-7xl mx-auto pb-12">
-          
-    <!-- Tab: SOC -->
-    <div v-if="activeTab === 'soc'" class="space-y-4">
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <!-- Mapa -->
-        <div class="lg:col-span-2 bg-gray-800/50 rounded-2xl border border-gray-700/40 p-4 h-[600px] flex flex-col">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-white font-semibold flex items-center gap-2">
-              <MapPin :size="18" class="text-amber-400" /> Mapa de Operaciones en Vivo
-            </h3>
-            <div class="flex gap-2">
-              <button class="bg-gray-900/50 text-gray-400 p-2 rounded-lg hover:text-white border border-gray-700/50 hover:border-gray-500 transition-all shadow-sm" title="Dibujar Geocerca"><Pentagon :size="16" /></button>
+    <!-- Tab: SOC (Security Operations Center) -->
+    <div v-if="activeTab === 'soc'" class="h-[calc(100vh-180px)] flex gap-4 overflow-hidden">
+      <!-- Mapa Principal (Grande) -->
+      <div class="flex-1 bg-gray-900 border border-gray-800 rounded-3xl relative overflow-hidden shadow-2xl group">
+        <!-- Overlay Stats (Mini) -->
+        <div class="absolute top-4 left-4 z-10 flex gap-2">
+          <div class="bg-gray-950/80 backdrop-blur-md border border-white/10 rounded-xl px-4 py-2 flex items-center gap-3 shadow-2xl">
+            <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+            <div>
+              <p class="text-[9px] text-gray-400 uppercase font-black tracking-tighter">Estado del Sistema</p>
+              <p class="text-xs text-white font-bold tracking-tight uppercase">SOC Activo</p>
             </div>
           </div>
-          <!-- Leaflet Container -->
-          <div ref="mapRef" class="flex-1 rounded-xl overflow-hidden bg-gray-900 border border-gray-700/50 relative z-0"></div>
+          
+          <div class="bg-gray-950/80 backdrop-blur-md border border-white/10 rounded-xl px-4 py-2 flex items-center gap-3 shadow-2xl">
+            <Pentagon :size="16" class="text-purple-400" />
+            <div>
+              <p class="text-[9px] text-gray-400 uppercase font-black tracking-tighter">Cobertura</p>
+              <p class="text-xs text-white font-bold">{{ geocercas?.length || 0 }} Zonas</p>
+            </div>
+          </div>
         </div>
 
-        <!-- Feed de Actividad -->
-        <div class="bg-gray-800/50 rounded-2xl border border-gray-700/40 p-4 h-[600px] flex flex-col">
-          <h3 class="text-white font-semibold flex items-center gap-2 mb-4">
-            <Activity :size="18" class="text-cyan-400" /> Eventos en Tiempo Real
-          </h3>
-          <div class="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
-             <div v-for="log in logsSoc" :key="log.id" class="p-3 bg-gray-900/50 border border-gray-700/50 rounded-xl relative overflow-hidden group hover:border-gray-600 transition-colors">
-                <div class="absolute left-0 top-0 bottom-0 w-1" :class="log.tipo === 'entrada' ? 'bg-emerald-500' : log.tipo === 'salida' ? 'bg-amber-500' : 'bg-blue-500'"></div>
-                <div class="pl-2">
-                   <div class="flex justify-between items-start">
-                     <p class="text-sm font-bold text-white truncate max-w-[160px]">{{ log.visitante || log.accion }}</p>
-                     <p class="text-[10px] text-gray-500 font-mono shrink-0">{{ log.createdAt ? new Date(log.createdAt.toMillis()).toLocaleTimeString() : 'Ahora' }}</p>
-                   </div>
-                   <p class="text-xs text-gray-400 mt-1 truncate">{{ log.accion }}</p>
-                   <p v-if="log.unidad" class="text-[10px] text-cyan-400/80 mt-1 font-medium truncate">{{ log.condominioNombre || 'Recinto' }} · Unidad {{ log.unidad }}</p>
+        <div class="absolute bottom-4 right-4 z-10 flex flex-col gap-2">
+           <button @click="mapInstance?.setView([18.45, -69.95], 14)" class="p-3 bg-gray-900/90 hover:bg-white hover:text-black text-white rounded-2xl border border-white/10 shadow-2xl transition-all">
+              <MapPin :size="20" />
+           </button>
+        </div>
+
+        <div ref="mapRef" class="w-full h-full z-0 bg-gray-950"></div>
+      </div>
+
+      <!-- Barra Lateral: Monitor + Infraestructura -->
+      <div class="w-96 flex flex-col gap-4 overflow-hidden">
+        
+        <!-- Sección 1: Monitor SOC (Events Feed) -->
+        <div class="flex-1 min-h-0 bg-gray-900 border border-gray-800 rounded-3xl flex flex-col shadow-xl overflow-hidden">
+          <div class="p-5 border-b border-gray-800 bg-gray-800/20 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20">
+                <Activity :size="20" class="text-cyan-400" />
+              </div>
+              <h3 class="text-sm font-bold text-white uppercase tracking-tight">Monitor de Eventos</h3>
+            </div>
+            <div class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
+          </div>
+          
+          <div class="flex-1 overflow-y-auto px-2 py-4 custom-scrollbar space-y-3">
+            <div v-for="log in logsSoc" :key="log.id" 
+              @click="verDetalleEvento(log)"
+              :class="[
+                log.tipo === 'denegado' ? 'border-red-500/30 bg-red-500/5' : 'border-gray-800 bg-gray-800/20',
+                'p-4 rounded-2xl border hover:border-white/20 transition-all cursor-pointer group active:scale-[0.98]'
+              ]">
+              <div class="flex items-start gap-3">
+                <div :class="[
+                  'w-10 h-10 rounded-xl flex items-center justify-center border shrink-0',
+                  log.tipo === 'denegado' ? 'bg-red-500/20 border-red-500/30' : 'bg-gray-700/30 border-gray-600/30'
+                ]">
+                  <component :is="log.tipo === 'denegado' ? Shield : CheckCircle" :size="18" :class="log.tipo === 'denegado' ? 'text-red-400' : 'text-emerald-400'" />
                 </div>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center justify-between mb-1">
+                    <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{{ log.createdAt?.toDate ? new Date(log.createdAt.toDate()).toLocaleTimeString() : (log.hora || 'Ahora') }}</p>
+                    <span v-if="log.photo" class="text-[10px] bg-cyan-500/20 text-cyan-400 px-1.5 py-0.5 rounded-md font-bold uppercase tracking-tighter">ID Audit</span>
+                  </div>
+                  <p class="text-xs font-bold text-white mb-0.5 truncate">{{ log.visitante }}</p>
+                  <p class="text-[11px] text-gray-400 line-clamp-1 italic">{{ log.accion }}</p>
+                </div>
+              </div>
+            </div>
+            
+            <div v-if="!logsSoc.length" class="h-full flex flex-col items-center justify-center text-center opacity-30 p-8">
+              <Activity :size="48" class="mb-4 text-gray-600" />
+              <p class="text-xs font-bold uppercase tracking-widest">Sin actividad reciente</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sección 2: Infraestructura SOC (Geofences) -->
+        <div class="h-64 bg-gray-900 border border-gray-800 rounded-3xl flex flex-col shadow-xl overflow-hidden shrink-0">
+          <div class="p-4 border-b border-gray-800 bg-gray-800/10 flex items-center justify-between">
+              <h3 class="text-[11px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                 <LayoutGrid :size="14" class="text-purple-400" /> Perímetros y Garitas
+              </h3>
+              <div class="flex gap-1">
+                 <button @click="startDraw('polygon')" class="p-2 rounded-lg bg-purple-600/10 hover:bg-purple-600 text-purple-400 hover:text-white transition-all border border-purple-500/20">
+                    <Pentagon :size="16" />
+                 </button>
+                 <button @click="startDraw('marker')" class="p-2 rounded-lg bg-amber-600/10 hover:bg-amber-600 text-amber-400 hover:text-white transition-all border border-amber-500/20">
+                    <MapPin :size="16" />
+                 </button>
+              </div>
+          </div>
+          
+          <div class="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
+             <div v-for="gc in geocercas" :key="gc.id" 
+                @click="focusOnGeocerca(gc)"
+                class="group flex items-center justify-between p-3 rounded-xl bg-gray-800/40 border border-transparent hover:border-white/10 hover:bg-gray-800/60 transition-all cursor-pointer">
+                <div class="flex items-center gap-3 min-w-0">
+                   <div class="w-2.5 h-2.5 rounded-full shadow-[0_0_8px]" :class="gc.tipo === 'marker' ? 'bg-amber-400 shadow-amber-500/50' : 'bg-purple-500 shadow-purple-500/50'"></div>
+                   <span class="text-xs text-gray-300 font-bold truncate tracking-tight">{{ gc.nombre }}</span>
+                </div>
+                <button @click.stop="confirmarBorradoGeocerca(gc.id)" class="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-all p-1">
+                   <Trash2 :size="14" />
+                </button>
              </div>
-             <div v-if="!logsSoc.length" class="text-center flex flex-col items-center justify-center h-full text-gray-500 text-sm">
-                <Shield :size="32" class="text-gray-700 mb-2 opacity-50" />
-                Esperando eventos...
+             <div v-if="!geocercas?.length" class="text-center py-6 opacity-20">
+                <p class="text-[10px] font-bold uppercase">Sin infraestructura</p>
              </div>
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- Tab: Condominios -->
+    </div>    <!-- Tab: Condominios -->
     <div v-if="activeTab === 'condominios'" class="space-y-4">
       <div class="bg-gray-800/50 rounded-2xl border border-gray-700/40 p-4">
         <h3 class="text-white font-semibold mb-3 flex items-center gap-2">
@@ -139,7 +208,8 @@
       <div v-for="condo in condominios" :key="condo.id"
         class="bg-gray-800/50 rounded-2xl border border-gray-700/40 overflow-hidden">
         <div class="p-4 flex items-center justify-between">
-          <div class="flex items-center gap-3">
+          <!-- View Mode -->
+          <div v-if="editingCondoId !== condo.id" class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center">
               <Building2 :size="20" class="text-white" />
             </div>
@@ -148,23 +218,63 @@
               <p class="text-gray-400 text-xs">{{ condo.ubicacion }} - {{ condo.tipo_agrupador }}</p>
             </div>
           </div>
+          <!-- Edit Mode -->
+          <div v-else class="flex flex-1 items-center gap-2 pr-4">
+            <input v-model="editCondoData.nombre" class="flex-1 bg-gray-900 border border-purple-500 rounded px-2 py-1.5 text-white text-sm focus:outline-none" placeholder="Nombre" />
+            <input v-model="editCondoData.ubicacion" class="flex-1 bg-gray-900 border border-purple-500 rounded px-2 py-1.5 text-white text-sm focus:outline-none" placeholder="Ubicación" />
+            <select v-model="editCondoData.tipo_agrupador" class="bg-gray-900 border border-purple-500 rounded px-2 py-1.5 text-white text-xs focus:outline-none">
+              <option v-for="t in tiposAgrupador" :key="t" :value="t">{{ t }}</option>
+            </select>
+          </div>
+
           <div class="flex items-center gap-2">
-            <button @click="verBitacoraCondo(condo)" class="text-xs bg-gray-700/50 hover:bg-gray-700 text-gray-300 px-2 py-1 rounded-lg border border-gray-600/30 flex items-center gap-1 transition-all">
-              <List :size="12" /> Bitacora
-            </button>
-            <span class="text-xs bg-emerald-500/20 text-emerald-300 px-2 py-1 rounded-lg">
-              {{ getUnidadCount(condo.id) }} uds
-            </span>
-            <button @click="confirmarBorradoCondo(condo)" class="text-red-400/60 hover:text-red-400 transition-colors p-1">
-              <Trash2 :size="16" />
-            </button>
+            <!-- Edit Actions -->
+            <div v-if="editingCondoId === condo.id" class="flex items-center gap-1">
+              <button @click="guardarEdicionCondo(condo.id)" class="bg-emerald-600 hover:bg-emerald-500 text-white p-1.5 rounded-lg transition-all">
+                <Check :size="16" />
+              </button>
+              <button @click="editingCondoId = null" class="bg-gray-700 hover:bg-gray-600 text-gray-300 p-1.5 rounded-lg transition-all">
+                <X :size="16" />
+              </button>
+            </div>
+            <!-- View Actions -->
+            <div v-else class="flex items-center gap-2">
+              <button @click="iniciarEdicionCondo(condo)" class="text-gray-400 hover:text-purple-400 transition-colors p-1.5">
+                <Pencil :size="16" />
+              </button>
+              <button @click="verBitacoraCondo(condo)" class="text-xs bg-gray-700/50 hover:bg-gray-700 text-gray-300 px-2 py-1.5 rounded-lg border border-gray-600/30 flex items-center gap-1 transition-all">
+                <List :size="12" /> Bitacora
+              </button>
+              <span class="text-xs bg-emerald-500/20 text-emerald-300 px-2 py-1.5 rounded-lg font-bold">
+                {{ getUnidadCount(condo.id) }} uds
+              </span>
+              <button @click="confirmarBorradoCondo(condo)" class="text-red-400/60 hover:text-red-400 transition-colors p-1.5">
+                <Trash2 :size="16" />
+              </button>
+            </div>
           </div>
         </div>
-        <div v-if="agrupadoresPorCondo[condo.id]?.length" class="px-4 pb-3 flex flex-wrap gap-1.5">
-          <span v-for="agr in agrupadoresPorCondo[condo.id]" :key="agr.id"
-            class="text-xs bg-gray-900/60 text-gray-300 px-2 py-1 rounded-md border border-gray-700/30">
+        <div v-if="agrupadoresPorCondo[condo.id]?.length" class="px-4 pb-3 flex flex-wrap gap-1.5 items-center">
+          <div v-for="agr in agrupadoresPorCondo[condo.id]" :key="agr.id"
+            class="group flex items-center gap-1.5 text-xs bg-gray-900/60 text-gray-300 px-2.5 py-1 rounded-md border border-gray-700/30 hover:border-purple-500/50 transition-all">
             {{ agr.nombre }}
-          </span>
+            <button @click="confirmarBorradoAgrupador(agr)" class="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-all">
+              <X :size="10" />
+            </button>
+          </div>
+          <div class="relative ml-2">
+             <button v-if="addingAgrupadorIn !== condo.id" @click="addingAgrupadorIn = condo.id; newAgrupadorNombre = ''" 
+               class="text-[10px] bg-purple-600/20 text-purple-300 hover:bg-purple-600/40 px-2 py-1 rounded flex items-center gap-1 border border-purple-500/30 transition-all">
+               <Plus :size="10" /> {{ condo.tipo_agrupador }}
+             </button>
+             <div v-else class="flex items-center gap-1 animate-in slide-in-from-left-2 duration-200">
+               <input v-model="newAgrupadorNombre" :placeholder="'Nombre ' + condo.tipo_agrupador" 
+                 class="bg-gray-900 border border-purple-500 rounded px-2 py-0.5 text-[10px] text-white focus:outline-none w-24"
+                 @keyup.enter="ejecutarAddAgrupador(condo.id)" />
+               <button @click="ejecutarAddAgrupador(condo.id)" class="text-emerald-400 hover:text-emerald-300"><Check :size="12" /></button>
+               <button @click="addingAgrupadorIn = null" class="text-gray-500 hover:text-white"><X :size="12" /></button>
+             </div>
+          </div>
         </div>
       </div>
     </div>
@@ -924,6 +1034,132 @@
 
         </div> <!-- End max-w-7xl -->
       </div> <!-- End Scrollable Area -->
+    <!-- naming Modal -->
+    <div v-if="showNamingModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div class="bg-gray-900 border border-gray-700 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
+        <div class="p-6">
+          <div class="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center mb-4 border border-purple-500/20">
+            <component :is="namingData.tipo === 'marker' ? MapPin : Pentagon" class="text-purple-400" :size="24" />
+          </div>
+          <h2 class="text-xl font-bold text-white mb-2">Asignar Nombre</h2>
+          <p class="text-gray-400 text-sm mb-4">Ingresa una etiqueta para identificar este {{ namingData.tipo === 'marker' ? 'punto de interés' : 'perímetro' }}.</p>
+          
+          <input v-model="namingData.nombre" autofocus placeholder="Ej. Garita Principal" 
+            class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-purple-500 focus:outline-none mb-4" />
+
+          <div class="flex gap-3">
+            <button @click="confirmNaming" class="flex-1 bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-2xl font-bold transition-all shadow-lg active:scale-95">Guardar</button>
+            <button @click="showNamingModal = false" class="flex-1 bg-gray-800 text-gray-400 py-3 rounded-2xl font-medium hover:text-white transition-all">Descartar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Detalle de Evento (Visor de Auditoría) -->
+    <div v-if="showEventDetailModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md">
+       <div class="bg-gray-900 border border-gray-800 rounded-[32px] w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-[0_0_100px_-20px_rgba(0,0,0,1)] flex flex-col animate-in fade-in zoom-in duration-300">
+          
+          <!-- Header -->
+          <div class="p-6 border-b border-gray-800 flex items-center justify-between bg-gray-800/30">
+             <div class="flex items-center gap-4">
+                <div :class="[
+                  'w-12 h-12 rounded-2xl flex items-center justify-center border',
+                  selectedLog?.tipo === 'denegado' ? 'bg-red-500/10 border-red-500/20' : 'bg-emerald-500/10 border-emerald-500/20'
+                ]">
+                   <Shield :size="24" :class="selectedLog?.tipo === 'denegado' ? 'text-red-400' : 'text-emerald-400'" />
+                </div>
+                <div>
+                   <h2 class="text-xl font-bold text-white tracking-tight">Detalle de Auditoría SOC</h2>
+                   <p class="text-xs text-gray-400 uppercase tracking-widest font-black">{{ selectedLog?.id }}</p>
+                </div>
+             </div>
+             <button @click="showEventDetailModal = false" class="p-3 rounded-2xl bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-all">
+                <X :size="24" />
+             </button>
+          </div>
+
+          <div class="flex-1 overflow-y-auto p-6">
+             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                
+                <!-- Columna 1: Multimedia / Evidencia -->
+                <div class="space-y-4">
+                   <div class="aspect-[4/3] rounded-3xl bg-gray-950 border border-gray-800 overflow-hidden relative shadow-inner group">
+                      <img v-if="selectedLog?.photo" :src="selectedLog.photo" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                      <div v-else class="w-full h-full flex flex-col items-center justify-center text-gray-700 p-12 text-center">
+                         <User :size="64" class="mb-4 opacity-20" />
+                         <p class="text-sm font-bold uppercase tracking-widest">Sin evidencia fotográfica</p>
+                      </div>
+                      <div v-if="selectedLog?.photo" class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-6">
+                         <p class="text-white text-xs font-medium">Captura automática de dispositivo móvil</p>
+                      </div>
+                   </div>
+                   
+                   <!-- Metadatos de Geolocalización -->
+                   <div class="bg-gray-800/30 border border-gray-800 rounded-3xl p-5">
+                      <h4 class="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-4">Punto de Captura</h4>
+                      <div class="flex items-center gap-4">
+                         <div class="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
+                            <MapPin :size="20" class="text-purple-400" />
+                         </div>
+                         <div class="flex-1">
+                            <p class="text-white font-bold text-sm">{{ selectedLog?.condominioNombre || 'Recinto No Identificado' }}</p>
+                            <p class="text-[11px] text-gray-400">Coordenadas: {{ selectedLog?.ubicacion?.lat?.toFixed(5) }}, {{ selectedLog?.ubicacion?.lng?.toFixed(5) }}</p>
+                         </div>
+                      </div>
+                   </div>
+                </div>
+
+                <!-- Columna 2: Datos del Incidente -->
+                <div class="space-y-6">
+                   <div class="grid grid-cols-2 gap-4">
+                      <div class="bg-gray-800/30 border border-gray-700/50 rounded-2xl p-4">
+                         <p class="text-[9px] text-gray-500 uppercase font-bold mb-1">Visitante</p>
+                         <p class="text-white font-bold">{{ selectedLog?.visitante }}</p>
+                      </div>
+                      <div class="bg-gray-800/30 border border-gray-700/50 rounded-2xl p-4">
+                         <p class="text-[9px] text-gray-500 uppercase font-bold mb-1">Unidad Destino</p>
+                         <p class="text-white font-bold">{{ selectedLog?.unidad }}</p>
+                      </div>
+                   </div>
+
+                   <div class="bg-gray-800/30 border border-gray-700/50 rounded-2xl p-5">
+                      <p class="text-[9px] text-gray-500 uppercase font-bold mb-3">Acción Registrada</p>
+                      <div class="flex items-start gap-4">
+                         <div class="w-1 bg-cyan-500/50 rounded-full self-stretch"></div>
+                         <p class="text-sm text-gray-200 leading-relaxed">{{ selectedLog?.accion }}</p>
+                      </div>
+                   </div>
+
+                   <div class="space-y-3">
+                      <h4 class="text-[10px] text-gray-500 uppercase font-black tracking-widest px-1">Historial del Evento</h4>
+                      <div class="bg-black/20 rounded-2xl border border-gray-800 p-4 space-y-4">
+                         <div class="flex gap-3">
+                            <div class="w-1.5 h-1.5 rounded-full bg-cyan-500 mt-1.5"></div>
+                            <div>
+                               <p class="text-xs text-white font-bold">Registro Inicial</p>
+                               <p class="text-[10px] text-gray-500 uppercase">{{ selectedLog?.createdAt?.toDate ? new Date(selectedLog.createdAt.toDate()).toLocaleString() : 'Recientemente' }}</p>
+                            </div>
+                         </div>
+                         <div class="flex gap-3">
+                            <div class="w-1.5 h-1.5 rounded-full bg-gray-600 mt-1.5"></div>
+                            <div>
+                               <p class="text-xs text-gray-400">Validación de GPS</p>
+                               <p class="text-[10px] text-gray-600 uppercase">Correcta (Dentro de Geocerca)</p>
+                            </div>
+                         </div>
+                      </div>
+                   </div>
+
+                   <button @click="showEventDetailModal = false" class="w-full bg-white text-black py-4 rounded-3xl font-black uppercase tracking-widest hover:bg-cyan-500 hover:text-white transition-all shadow-[0_20px_40px_-15px_rgba(255,255,255,0.2)]">
+                      Cerrar Reporte
+                   </button>
+                </div>
+
+             </div>
+          </div>
+       </div>
+    </div>
+
     </main>
   </div>
 </template>
@@ -934,8 +1170,7 @@ import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth.js'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
-import 'leaflet-draw/dist/leaflet.draw.css'
-import 'leaflet-draw'
+window.L = L // Necesario para leaflet-draw en scopes modulados
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
@@ -960,7 +1195,8 @@ import {
   validarDocumento,
   getAsignaciones, addAsignacion, removeAsignacion, editarAsignacion,
   getActividadByCondominio, subscribeToActividadGlobal,
-  getGeocercas, addGeocerca, deleteGeocerca, subscribeToGuardias
+  getGeocercas, addGeocerca, deleteGeocerca, subscribeToGuardias,
+  addAgrupador, deleteAgrupador, updateCondominio
 } from '../firebase/firestore.js'
 
 const router = useRouter()
@@ -985,6 +1221,8 @@ const stats = ref({ totalCondominios: 0, totalUnidades: 0, totalAgrupadores: 0, 
 const activeTab = ref('soc')
 const errorMsg = ref('')
 
+
+
 const tabs = [
   { id: 'soc', label: 'Monitor SOC', short: 'SOC', icon: Shield },
   { id: 'condominios', label: 'Condominios', short: 'Cond.', icon: Building2 },
@@ -996,6 +1234,7 @@ const tabs = [
 
 // ---- SOC (Monitor de Seguridad) ----
 const logsSoc = ref([])
+const geocercas = ref([])
 const mapRef = ref(null)
 const mapInstance = ref(null)
 const drawnItems = ref(null)
@@ -1004,8 +1243,105 @@ const guardMarkers = ref({})
 let unsubscribeSoc = null
 let unsubscribeGuardias = null
 
-onMounted(() => {
+// Modal de Detalle de Evento
+const showEventDetailModal = ref(false)
+const selectedLog = ref(null)
+
+function verDetalleEvento(log) {
+  selectedLog.value = log
+  showEventDetailModal.value = true
+}
+
+// Lógica de Nombrado de Geocercas/POIs
+const showNamingModal = ref(false)
+const namingData = ref({ nombre: '', tipo: '', layer: null })
+
+
+
+function focusOnGeocerca(gc) {
+  if (!mapInstance.value) return
+  if (gc.tipo === 'marker') {
+     mapInstance.value.setView([gc.geometria.lat, gc.geometria.lng], 18)
+  } else if (gc.tipo === 'circle') {
+     mapInstance.value.setView([gc.geometria.lat, gc.geometria.lng], 16)
+  } else {
+     const bounds = L.latLngBounds(gc.geometria.map(p => [p.lat, p.lng]))
+     mapInstance.value.fitBounds(bounds)
+  }
+}
+
+function startDraw(type) {
+  if (!drawControl.value) return
+  const handlers = {
+    polygon: drawControl.value._toolbars.draw._modes.polygon.handler,
+    marker: drawControl.value._toolbars.draw._modes.marker.handler
+  }
+  if (handlers[type]) handlers[type].enable()
+}
+
+function cancelNaming() {
+  if (namingData.value.layer) {
+     mapInstance.value.removeLayer(namingData.value.layer)
+  }
+  showNamingModal.value = false
+}
+
+async function confirmarBorradoGeocerca(id) {
+  if (confirm('¿Desea eliminar este perímetro/POI del sistema?')) {
+     try {
+        await deleteGeocerca(id)
+        // Remover de la capa local
+        drawnItems.value.eachLayer(layer => {
+           if (layer.gcId === id) drawnItems.value.removeLayer(layer)
+        })
+        geocercas.value = geocercas.value.filter(g => g.id !== id)
+     } catch (e) {
+        alert("Error al borrar: " + e.message)
+     }
+  }
+}
+
+// Sonidos de Alerta
+const playAlert = (type = 'success') => {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    
+    if (type === 'error') {
+      osc.type = 'sawtooth'
+      osc.frequency.setValueAtTime(440, ctx.currentTime)
+      osc.frequency.exponentialRampToValueAtTime(110, ctx.currentTime + 0.5)
+      gain.gain.setValueAtTime(0.2, ctx.currentTime)
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.5)
+    } else {
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(880, ctx.currentTime)
+      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1)
+      gain.gain.setValueAtTime(0.1, ctx.currentTime)
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.2)
+    }
+    
+    osc.start()
+    osc.stop(ctx.currentTime + 0.5)
+  } catch(e) { console.warn("AudioContext no habilitado:", e) }
+}
+
+onMounted(async () => {
+  await refreshData()
+  
   unsubscribeSoc = subscribeToActividadGlobal(50, (logs) => {
+    if (logs.length > logsSoc.value.length) {
+        const newLog = logs[0]
+        if (newLog.tipo === 'denegado' || newLog.accion.toLowerCase().includes('ya usado')) {
+            playAlert('error')
+        } else {
+            playAlert('success')
+        }
+    }
     logsSoc.value = logs
   })
 
@@ -1033,10 +1369,21 @@ watch(activeTab, async (newVal) => {
   if (newVal === 'soc') {
     await nextTick()
     if (!mapInstance.value && mapRef.value) {
+      // Import dinámico para asegurar que `window.L` esté fijado
+      await import('leaflet-draw')
+      await import('leaflet-draw/dist/leaflet.draw.css')
+      
       mapInstance.value = L.map(mapRef.value).setView([18.57, -68.39], 13) // Punta Cana approx
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; CARTO'
+      // Usar OpenStreetMap estándar gratuito (colores normales) en lugar de CARTO Dark
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19
       }).addTo(mapInstance.value)
+      
+      // FORZAR ACTUALIZACIÓN DE MANTO CSS (Bug de Renderizado negro en Vue Tabs)
+      setTimeout(() => {
+        if (mapInstance.value) mapInstance.value.invalidateSize()
+      }, 300)
       
       drawnItems.value = new L.FeatureGroup()
       mapInstance.value.addLayer(drawnItems.value)
@@ -1045,25 +1392,24 @@ watch(activeTab, async (newVal) => {
         edit: { featureGroup: drawnItems.value, remove: true },
         draw: {
           polygon: { allowIntersection: false, showArea: true, shapeOptions: { color: '#3b82f6', weight: 2 } },
-          polyline: false, circlemarker: false, rectangle: false, marker: false,
+          polyline: false, circlemarker: false, rectangle: false, 
+          marker: { icon: new L.Icon.Default() },
           circle: { shapeOptions: { color: '#3b82f6', weight: 2 } }
         }
       })
       mapInstance.value.addControl(drawControl.value)
 
-      mapInstance.value.on(L.Draw.Event.CREATED, async (event) => {
+      mapInstance.value.on(L.Draw.Event.CREATED, (event) => {
         const layer = event.layer
         const type = event.layerType
-        const geocercaData = {
-          tipo: type,
-          nombre: `Geocerca-${Date.now().toString().slice(-4)}`,
-          geometria: type === 'circle' ? { lat: layer.getLatLng().lat, lng: layer.getLatLng().lng, radius: layer.getRadius() } : layer.getLatLngs()[0].map(ll => ({lat: ll.lat, lng: ll.lng}))
+        
+        // Abrir modal de nombrado
+        namingData.value = { 
+            nombre: type === 'marker' ? 'Garita ' : (type === 'circle' ? 'Zona Circular ' : 'Perímetro '),
+            tipo: type,
+            layer: layer 
         }
-        try {
-          const nuevaGC = await addGeocerca(geocercaData)
-          layer.gcId = nuevaGC.id
-          drawnItems.value.addLayer(layer)
-        } catch(e) { alert("Error guardando geocerca: " + e.message) }
+        showNamingModal.value = true
       })
 
       mapInstance.value.on(L.Draw.Event.DELETED, async (event) => {
@@ -1104,11 +1450,62 @@ const showDeleteModal = ref(false)
 const showLogDrawer = ref(false)
 const selectedCondo = ref(null)
 const logsCondo = ref([])
+const editingCondoId = ref(null)
+const editCondoData = ref({ nombre: '', ubicacion: '', tipo_agrupador: '' })
+const addingAgrupadorIn = ref(null)
+const newAgrupadorNombre = ref('')
 
 async function verBitacoraCondo(condo) {
   selectedCondo.value = condo
   logsCondo.value = await getActividadByCondominio(condo.id)
   showLogDrawer.value = true
+}
+
+function iniciarEdicionCondo(condo) {
+  editingCondoId.value = condo.id
+  editCondoData.value = { 
+    nombre: condo.nombre, 
+    ubicacion: condo.ubicacion, 
+    tipo_agrupador: condo.tipo_agrupador 
+  }
+}
+
+async function guardarEdicionCondo(id) {
+  try {
+    await updateCondominio(id, editCondoData.value)
+    editingCondoId.value = null
+    await refreshData()
+  } catch (e) {
+    alert('Error al actualizar condominio: ' + e.message)
+  }
+}
+
+async function ejecutarAddAgrupador(condoId) {
+  if (!newAgrupadorNombre.value) return
+  try {
+    await addAgrupador({ nombre: newAgrupadorNombre.value, condominioId: condoId })
+    addingAgrupadorIn.value = null
+    newAgrupadorNombre.value = ''
+    await refreshData()
+  } catch (e) {
+    alert(e.message)
+  }
+}
+
+async function confirmarBorradoAgrupador(agr) {
+  const uniCount = unidades.value.filter(u => u.agrupadorId === agr.id).length
+  const msg = uniCount > 0 
+    ? `Este agrupador tiene ${uniCount} unidades vinculadas. ¿Seguro que desea eliminarlo y todas sus unidades?`
+    : `¿Seguro que desea eliminar "${agr.nombre}"?`
+    
+  if (confirm(msg)) {
+    try {
+      await deleteAgrupador(agr.id)
+      await refreshData()
+    } catch (e) {
+      alert(e.message)
+    }
+  }
 }
 
 async function confirmarBorradoCondo(condo) {
@@ -1556,19 +1953,68 @@ function getUnidadCount(condoId) { return unidades.value.filter(u => u.condomini
 
 // ---- Init ----
 async function refreshData() {
-  condominios.value = await getCondominios()
-  unidades.value = await getUnidades()
-  agrupadores.value = await getAgrupadores()
-  usuarios.value = await getUsuarios()
-  asignaciones.value = await getAsignaciones()
-  stats.value = {
-    totalCondominios: condominios.value.length,
-    totalUnidades: unidades.value.length,
-    totalAgrupadores: agrupadores.value.length,
-    totalUsuarios: usuarios.value.length,
-    totalAsignaciones: asignaciones.value.length
+  try {
+    errorMsg.value = ''
+    const results = await Promise.allSettled([
+      getCondominios(),
+      getUnidades(),
+      getAgrupadores(),
+      getUsuarios(),
+      getAsignaciones(),
+      getGeocercas()
+    ])
+
+    if (results[0].status === 'fulfilled') condominios.value = results[0].value
+    if (results[1].status === 'fulfilled') unidades.value = results[1].value
+    if (results[2].status === 'fulfilled') agrupadores.value = results[2].value
+    if (results[3].status === 'fulfilled') usuarios.value = results[3].value
+    if (results[4].status === 'fulfilled') asignaciones.value = results[4].value
+    if (results[5].status === 'fulfilled') geocercas.value = results[5].value
+
+    // Si todo falló, mostrar error general
+    if (results.every(r => r.status === 'rejected')) {
+        errorMsg.value = '⚠️ No se pudo conectar con la base de datos (Timeout). Verifica tu conexión.'
+    }
+
+    stats.value = {
+      totalCondominios: condominios.value.length,
+      totalUnidades: unidades.value.length,
+      totalAgrupadores: agrupadores.value.length,
+      totalUsuarios: usuarios.value.length,
+      totalAsignaciones: asignaciones.value.length
+    }
+  } catch (e) {
+    console.error('Error en refreshData:', e)
+    errorMsg.value = 'Error al cargar datos del sistema.'
   }
 }
 
-onMounted(refreshData)
+
+const confirmNaming = async () => {
+  if (!namingData.value.nombre) return
+  
+  const { tipo, layer, nombre } = namingData.value
+  const geocercaData = {
+    tipo: tipo,
+    nombre: nombre,
+    geometria: tipo === 'marker' 
+        ? { lat: layer.getLatLng().lat, lng: layer.getLatLng().lng }
+        : (tipo === 'circle' 
+            ? { lat: layer.getLatLng().lat, lng: layer.getLatLng().lng, radius: layer.getRadius() } 
+            : layer.getLatLngs()[0].map(ll => ({lat: ll.lat, lng: ll.lng})))
+  }
+
+  try {
+    const nueva = await addGeocerca(geocercaData)
+    layer.gcId = nueva.id
+    // Añadir Tooltip permanente con el nombre
+    layer.bindTooltip(nombre, { permanent: true, direction: 'top', className: 'bg-gray-900 border-none text-white text-[10px] font-bold px-1 rounded shadow' }).openTooltip()
+    drawnItems.value.addLayer(layer)
+    geocercas.value.push({ id: nueva.id, ...geocercaData })
+    showNamingModal.value = false
+    namingData.value = { nombre: '', tipo: '', layer: null }
+  } catch(e) {
+    alert("Error guardando geocerca/POI: " + e.message)
+  }
+}
 </script>

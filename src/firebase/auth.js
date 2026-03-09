@@ -136,10 +136,10 @@ export function getCurrentUser() {
         return null
     }
     const user = auth.currentUser
-    if (user && currentUserProfile) {
-        return { ...user, ...currentUserProfile, id: user.uid }
+    if (user) {
+        return { ...user, ...currentUserProfile, id: user.uid, role: currentUserProfile?.role || 'unknown' }
     }
-    return user
+    return null
 }
 
 export async function getUserProfile(uid) {
@@ -202,9 +202,21 @@ export function onAuthChange(callback) {
 
     return onAuthStateChanged(auth, async (user) => {
         if (user) {
-            const profile = await getUserProfile(user.uid)
-            currentUserProfile = profile
-            callback({ ...user, ...profile })
+            try {
+                // Timeout de 5 segundos para obtener el perfil para no bloquear el inicio de la app
+                const profilePromise = getUserProfile(user.uid)
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('TIMEOUT_FIRESTORE_PROFILE')), 5000)
+                )
+
+                const profile = await Promise.race([profilePromise, timeoutPromise])
+                currentUserProfile = profile
+                callback({ ...user, ...profile })
+            } catch (error) {
+                console.error('⚠️ Error al cargar perfil (posible timeout):', error)
+                // Si hay error o timeout, cargamos el usuario básico para no bloquear
+                callback({ ...user, id: user.uid, role: 'unknown' })
+            }
         } else {
             currentUserProfile = null
             callback(null)

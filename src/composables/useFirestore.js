@@ -25,11 +25,24 @@ export function useFirestore() {
     // Condominios
     const getCondominios = () => execute(firestoreService.getCondominios)
     const getCondominio = (id) => execute(firestoreService.getCondominio, id)
+    const addCondominio = (data) => execute(firestoreService.addCondominio, data)
+    const updateCondominio = (id, data) => execute(firestoreService.updateCondominio, id, data)
+    const deleteCondominio = (id, force) => execute(firestoreService.deleteCondominio, id, force)
+
+    // Agrupadores
+    const getAgrupadores = (cid) => execute(firestoreService.getAgrupadores, cid)
+    const addAgrupador = (data) => execute(firestoreService.addAgrupador, data)
 
     // Unidades
     const getUnidades = () => execute(firestoreService.getUnidades)
     const getUnidadesByPropietario = (uid) => execute(firestoreService.getUnidadesByPropietario, uid)
     const getUnidadesByCondominio = (cid) => execute(firestoreService.getUnidadesByCondominio, cid)
+    const updateUnidad = (id, data) => execute(firestoreService.updateUnidad, id, data)
+    const deleteUnidad = (id) => execute(firestoreService.deleteUnidad, id)
+
+    // Wizard
+    const generarNomenclaturaPreview = (config) => firestoreService.generarNomenclaturaPreview(config)
+    const generarUnidadesBatch = (config) => execute(firestoreService.generarUnidadesBatch, config)
 
     // Invitaciones
     const createInvitacion = (data) => execute(firestoreService.createInvitacion, data)
@@ -44,6 +57,7 @@ export function useFirestore() {
     const getSiguientePase = () => execute(firestoreService.getSiguientePase)
     const getActividadReciente = (limit) => execute(firestoreService.getActividadReciente, limit)
     const getActividadByUnidades = (ids, nombres, limit) => execute(firestoreService.getActividadByUnidades, ids, nombres, limit)
+    const getActividadByCondominio = (id) => execute(firestoreService.getActividadByCondominio, id)
     const registrarActividad = (data) => execute(firestoreService.registrarActividad, data)
 
     // Usuarios (Módulo 2)
@@ -64,6 +78,9 @@ export function useFirestore() {
     const removeAsignacion = (id) => execute(firestoreService.removeAsignacion, id)
     const editarAsignacion = (id, data) => execute(firestoreService.editarAsignacion, id, data)
 
+    // Agrupadores (Complemento)
+    const deleteAgrupador = (id, force) => execute(firestoreService.deleteAgrupador, id, force)
+
     // Invitaciones extendidas (Módulo 3)
     const updateInvitacion = (id, data) => execute(firestoreService.updateInvitacion, id, data)
 
@@ -78,12 +95,22 @@ export function useFirestore() {
         loading,
         error,
         // Condominios
-        getCondominios,
-        getCondominio,
+        addCondominio,
+        updateCondominio,
+        deleteCondominio,
+        // Agrupadores
+        getAgrupadores,
+        addAgrupador,
+        deleteAgrupador,
         // Unidades
         getUnidades,
         getUnidadesByPropietario,
         getUnidadesByCondominio,
+        updateUnidad,
+        deleteUnidad,
+        // Wizard
+        generarNomenclaturaPreview,
+        generarUnidadesBatch,
         // Invitaciones
         createInvitacion,
         getInvitacionesByPropietario,
@@ -96,6 +123,7 @@ export function useFirestore() {
         getSiguientePase,
         getActividadReciente,
         getActividadByUnidades,
+        getActividadByCondominio,
         registrarActividad,
         // Usuarios
         getUsuarios,

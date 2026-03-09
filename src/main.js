@@ -3,12 +3,17 @@ import './style.css'
 import App from './App.vue'
 import router from './router'
 import { seedFirestore } from './firebase/seeder.js'
+import { onAuthChange } from './firebase/auth.js'
 
 // Inicializar datos demo en Firestore (solo si la colección está vacía)
 seedFirestore().catch(e => console.error('Error seeding firestore:', e))
 
-const app = createApp(App)
+let app
 
-app.use(router)
-
-app.mount('#app')
+onAuthChange(() => {
+    if (!app) {
+        app = createApp(App)
+        app.use(router)
+        app.mount('#app')
+    }
+})

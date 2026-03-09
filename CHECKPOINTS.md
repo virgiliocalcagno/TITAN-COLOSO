@@ -15,12 +15,30 @@ Sistema de checkpoints para restaurar la aplicación a un estado estable previo.
 | v1.4.0  | 2026-03-05 | Interfaz Escalable: Acordeón y Filtros en Asignaciones |
 | v1.5.0  | 2026-03-09 | Seguridad, Multientrada QR y UX Optimizado             |
 | v1.6.0  | 2026-03-09 | Infraestructura Desktop: Super Admin y CRUD Migrado    |
+| v1.7.0  | 2026-03-09 | Monitor de Seguridad (SOC), Georreferenciación y Mapa  |
 
 ---
 
 ## Checkpoints
 
-### CP007 — v1.6.0 Infraestructura Desktop: Super Admin y CRUD Migrado ⭐ ACTUAL
+### CP008 — v1.7.0 Monitor de Seguridad (SOC) y Rastreo Georreferenciado ⭐ ACTUAL
+
+- **Fecha**: 2026-03-09
+- **Tag**: `v1.7.0`
+- **Branch**: `main`
+- **Deploy**: [titan-coloso.web.app](https://titan-coloso.web.app)
+- **Estado**: ✅ Estable
+
+**Funcionalidades incluidas:**
+
+- **🗺️ Tablero SOC (Leaflet)**: Nuevo panel "Monitor SOC" dentro de `/super-admin`. Incorpora un mapa de fondo oscuro de alta tecnología (CARTO Dark Matter) para coordinadores.
+- **🛡️ Geocercas (Polígonos/Círculos)**: Integración de `leaflet-draw` permitiendo al administrador diseñar áreas permitidas. Toda el área se serializa matemáticamente en Firestore (`geocercas`).
+- **📡 Rastreo Vehicular / Guardias Activos**: Al encender el escáner móvil, la PWA encola el servicio `navigator.geolocation.watchPosition` emitiendo la lat/lng al SOC cada segundo. Estos se dibujan automáticamente como iconos "G" en la web del administrador al ser suscritos bajo `onSnapshot()`.
+- **⛔ Bloqueo Geodésico Inteligente (Ray-casting)**: En el escáner, si la orden de emitir Acceso Aprobado no se detecta dentro de ninguno de los rangos trazados por el SOC (IsPointInPolygon, Fórmula de distancia Haversine), la UI es bloqueada, inhabilitando el registro de pases si el guardia abandona el perímetro.
+
+---
+
+### CP007 — v1.6.0 Infraestructura Desktop: Super Admin y CRUD Migrado
 
 - **Fecha**: 2026-03-09
 - **Tag**: `v1.6.0`
