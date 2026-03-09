@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useFirestore } from '../composables/useFirestore.js'
 import { useAuth } from '../composables/useAuth.js'
 import { Camera, ShieldCheck, ShieldAlert, ShieldX, Clock, User as UserIcon, Building2, DoorOpen, AlertTriangle, Truck, Keyboard, X, Search, Loader2, CheckCircle, XCircle, Bell, MapPin } from 'lucide-vue-next'
