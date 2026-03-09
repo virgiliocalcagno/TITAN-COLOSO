@@ -12,7 +12,11 @@ const loadFromLocal = (key, defaultData) => {
 }
 
 import { db } from './config.js'
-import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc, serverTimestamp, orderBy, setDoc, runTransaction } from 'firebase/firestore'
+import {
+    getFirestore, collection, addDoc, getDocs, updateDoc, doc, deleteDoc,
+    query, where, orderBy, serverTimestamp, getDoc, setDoc, limit, writeBatch, runTransaction,
+    onSnapshot
+} from 'firebase/firestore'
 
 
 // ============================================
@@ -334,11 +338,26 @@ export async function updateInvitacion(invitacionId, data) {
 // ACTIVIDAD (Log de accesos históricos genéricos - MOCK OLD)
 // ============================================
 
-export async function getActividadReciente(limit = 10) {
-    if (MOCK_MODE) return seedActividad.slice(0, limit)
-    const q = query(collection(db, 'actividad'), orderBy('createdAt', 'desc'))
+export async function getActividadReciente(limitCount = 10) {
+    if (MOCK_MODE) return seedActividad.slice(0, limitCount)
+    const q = query(collection(db, 'actividad'), orderBy('createdAt', 'desc'), limit(limitCount))
     const snap = await getDocs(q)
-    return snap.docs.map(d => ({ id: d.id, ...d.data() })).slice(0, limit)
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+}
+
+export function subscribeToActividadGlobal(limitCount = 50, callback) {
+    if (MOCK_MODE) {
+        callback(seedActividad.slice(0, limitCount))
+        // Simulador de mock no soporta eventos reales tan fácil, mandamos lo inicial.
+        return () => { }
+    }
+    const q = query(collection(db, 'actividad'), orderBy('createdAt', 'desc'), limit(limitCount))
+    return onSnapshot(q, (snapshot) => {
+        const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        callback(logs)
+    }, (error) => {
+        console.error("Error en SOC stream de actividad:", error)
+    })
 }
 
 export async function getActividadByCondominio(condominioId) {
@@ -1435,6 +1454,42 @@ export async function addVisita(data) {
         return true
     }
     await addDoc(collection(db, 'actividad'), { ...data, createdAt: serverTimestamp() })
+}
+
+// ============================================
+// GEOCERCAS - MONITOR SOC
+// ============================================
+
+export async function getGeocercas() {
+    if (MOCK_MODE) return []
+    const snap = await getDocs(collection(db, 'geocercas'))
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+}
+
+export async function addGeocerca(data) {
+    if (MOCK_MODE) return true
+    const docRef = await addDoc(collection(db, 'geocercas'), { ...data, createdAt: serverTimestamp() })
+    return { id: docRef.id, ...data }
+}
+
+export async function deleteGeocerca(id) {
+    if (MOCK_MODE) return true
+    await deleteDoc(doc(db, 'geocercas', id))
+}
+
+export async function updateGuardLocation(userId, nombre, lat, lng) {
+    if (MOCK_MODE) return
+    await setDoc(doc(db, 'ubicaciones_guardias', userId), {
+        nombre, lat, lng, lastUpdate: serverTimestamp()
+    })
+}
+
+export function subscribeToGuardias(callback) {
+    if (MOCK_MODE) return () => { }
+    return onSnapshot(collection(db, 'ubicaciones_guardias'), (snapshot) => {
+        const guardias = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        callback(guardias)
+    }, (error) => console.error("Error en SOC guardias stream:", error))
 }
 
 // ============================================

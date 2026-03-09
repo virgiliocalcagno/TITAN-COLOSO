@@ -58,6 +58,49 @@
       <div class="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
         <div class="max-w-7xl mx-auto pb-12">
           
+    <!-- Tab: SOC -->
+    <div v-if="activeTab === 'soc'" class="space-y-4">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Mapa -->
+        <div class="lg:col-span-2 bg-gray-800/50 rounded-2xl border border-gray-700/40 p-4 h-[600px] flex flex-col">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-white font-semibold flex items-center gap-2">
+              <MapPin :size="18" class="text-amber-400" /> Mapa de Operaciones en Vivo
+            </h3>
+            <div class="flex gap-2">
+              <button class="bg-gray-900/50 text-gray-400 p-2 rounded-lg hover:text-white border border-gray-700/50 hover:border-gray-500 transition-all shadow-sm" title="Dibujar Geocerca"><Pentagon :size="16" /></button>
+            </div>
+          </div>
+          <!-- Leaflet Container -->
+          <div ref="mapRef" class="flex-1 rounded-xl overflow-hidden bg-gray-900 border border-gray-700/50 relative z-0"></div>
+        </div>
+
+        <!-- Feed de Actividad -->
+        <div class="bg-gray-800/50 rounded-2xl border border-gray-700/40 p-4 h-[600px] flex flex-col">
+          <h3 class="text-white font-semibold flex items-center gap-2 mb-4">
+            <Activity :size="18" class="text-cyan-400" /> Eventos en Tiempo Real
+          </h3>
+          <div class="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3">
+             <div v-for="log in logsSoc" :key="log.id" class="p-3 bg-gray-900/50 border border-gray-700/50 rounded-xl relative overflow-hidden group hover:border-gray-600 transition-colors">
+                <div class="absolute left-0 top-0 bottom-0 w-1" :class="log.tipo === 'entrada' ? 'bg-emerald-500' : log.tipo === 'salida' ? 'bg-amber-500' : 'bg-blue-500'"></div>
+                <div class="pl-2">
+                   <div class="flex justify-between items-start">
+                     <p class="text-sm font-bold text-white truncate max-w-[160px]">{{ log.visitante || log.accion }}</p>
+                     <p class="text-[10px] text-gray-500 font-mono shrink-0">{{ log.createdAt ? new Date(log.createdAt.toMillis()).toLocaleTimeString() : 'Ahora' }}</p>
+                   </div>
+                   <p class="text-xs text-gray-400 mt-1 truncate">{{ log.accion }}</p>
+                   <p v-if="log.unidad" class="text-[10px] text-cyan-400/80 mt-1 font-medium truncate">{{ log.condominioNombre || 'Recinto' }} · Unidad {{ log.unidad }}</p>
+                </div>
+             </div>
+             <div v-if="!logsSoc.length" class="text-center flex flex-col items-center justify-center h-full text-gray-500 text-sm">
+                <Shield :size="32" class="text-gray-700 mb-2 opacity-50" />
+                Esperando eventos...
+             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Tab: Condominios -->
     <div v-if="activeTab === 'condominios'" class="space-y-4">
       <div class="bg-gray-800/50 rounded-2xl border border-gray-700/40 p-4">
@@ -886,12 +929,28 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch, nextTick, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth.js'
+import 'leaflet/dist/leaflet.css'
+import L from 'leaflet'
+import 'leaflet-draw/dist/leaflet.draw.css'
+import 'leaflet-draw'
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
+import markerIcon from 'leaflet/dist/images/marker-icon.png'
+import markerShadow from 'leaflet/dist/images/marker-shadow.png'
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+    iconRetinaUrl: markerIcon2x,
+    iconUrl: markerIcon,
+    shadowUrl: markerShadow
+});
+
 import { 
   Building2, Plus, Trash2, Search, Check, X, Pencil, Loader2, CheckCircle, 
-  LayoutGrid, Wand2, List, Users, UserPlus, Link, AlertTriangle, History, LogIn, FileText, Mail, ChevronDown, User, LogOut
+  LayoutGrid, Wand2, List, Users, UserPlus, Link, AlertTriangle, History, LogIn, FileText, Mail, ChevronDown, User, LogOut,
+  Shield, MapPin, Activity, Pentagon
 } from 'lucide-vue-next'
 import {
   getCondominios, getUnidades, getAgrupadores, getAdminStats,
@@ -900,7 +959,8 @@ import {
   getUsuarios, addUsuario, updateUsuario, deleteUsuario, buscarUsuarios,
   validarDocumento,
   getAsignaciones, addAsignacion, removeAsignacion, editarAsignacion,
-  getActividadByCondominio
+  getActividadByCondominio, subscribeToActividadGlobal,
+  getGeocercas, addGeocerca, deleteGeocerca, subscribeToGuardias
 } from '../firebase/firestore.js'
 
 const router = useRouter()
@@ -922,16 +982,109 @@ const condominios = ref([])
 const unidades = ref([])
 const agrupadores = ref([])
 const stats = ref({ totalCondominios: 0, totalUnidades: 0, totalAgrupadores: 0, totalUsuarios: 0, totalAsignaciones: 0 })
-const activeTab = ref('condominios')
+const activeTab = ref('soc')
 const errorMsg = ref('')
 
 const tabs = [
+  { id: 'soc', label: 'Monitor SOC', short: 'SOC', icon: Shield },
   { id: 'condominios', label: 'Condominios', short: 'Cond.', icon: Building2 },
   { id: 'wizard', label: 'Wizard', short: 'Wiz', icon: Wand2 },
   { id: 'unidades', label: 'Unidades', short: 'Uds', icon: List },
   { id: 'usuarios', label: 'Usuarios', short: 'Usr', icon: Users },
   { id: 'asignaciones', label: 'Asignaciones', short: 'Asig', icon: Link },
 ]
+
+// ---- SOC (Monitor de Seguridad) ----
+const logsSoc = ref([])
+const mapRef = ref(null)
+const mapInstance = ref(null)
+const drawnItems = ref(null)
+const drawControl = ref(null)
+const guardMarkers = ref({})
+let unsubscribeSoc = null
+let unsubscribeGuardias = null
+
+onMounted(() => {
+  unsubscribeSoc = subscribeToActividadGlobal(50, (logs) => {
+    logsSoc.value = logs
+  })
+
+  unsubscribeGuardias = subscribeToGuardias((guardias) => {
+    if (!mapInstance.value) return
+    guardias.forEach(g => {
+       if (guardMarkers.value[g.id]) {
+           guardMarkers.value[g.id].setLatLng([g.lat, g.lng])
+       } else {
+           const icon = L.divIcon({ html: '<div class="w-8 h-8 rounded-full bg-emerald-500 border-2 border-white shadow-lg flex items-center justify-center text-white text-xs font-bold ring-4 ring-emerald-500/30">G</div>', className: '' })
+           const m = L.marker([g.lat, g.lng], { title: g.nombre, icon }).bindPopup(`<b>${g.nombre}</b><br>Vigilante Activo`).addTo(mapInstance.value)
+           guardMarkers.value[g.id] = m
+       }
+    })
+  })
+})
+
+onUnmounted(() => {
+  if (unsubscribeSoc) unsubscribeSoc()
+  if (unsubscribeGuardias) unsubscribeGuardias()
+  if (mapInstance.value) { mapInstance.value.remove(); mapInstance.value = null }
+})
+
+watch(activeTab, async (newVal) => {
+  if (newVal === 'soc') {
+    await nextTick()
+    if (!mapInstance.value && mapRef.value) {
+      mapInstance.value = L.map(mapRef.value).setView([18.57, -68.39], 13) // Punta Cana approx
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; CARTO'
+      }).addTo(mapInstance.value)
+      
+      drawnItems.value = new L.FeatureGroup()
+      mapInstance.value.addLayer(drawnItems.value)
+      
+      drawControl.value = new L.Control.Draw({
+        edit: { featureGroup: drawnItems.value, remove: true },
+        draw: {
+          polygon: { allowIntersection: false, showArea: true, shapeOptions: { color: '#3b82f6', weight: 2 } },
+          polyline: false, circlemarker: false, rectangle: false, marker: false,
+          circle: { shapeOptions: { color: '#3b82f6', weight: 2 } }
+        }
+      })
+      mapInstance.value.addControl(drawControl.value)
+
+      mapInstance.value.on(L.Draw.Event.CREATED, async (event) => {
+        const layer = event.layer
+        const type = event.layerType
+        const geocercaData = {
+          tipo: type,
+          nombre: `Geocerca-${Date.now().toString().slice(-4)}`,
+          geometria: type === 'circle' ? { lat: layer.getLatLng().lat, lng: layer.getLatLng().lng, radius: layer.getRadius() } : layer.getLatLngs()[0].map(ll => ({lat: ll.lat, lng: ll.lng}))
+        }
+        try {
+          const nuevaGC = await addGeocerca(geocercaData)
+          layer.gcId = nuevaGC.id
+          drawnItems.value.addLayer(layer)
+        } catch(e) { alert("Error guardando geocerca: " + e.message) }
+      })
+
+      mapInstance.value.on(L.Draw.Event.DELETED, async (event) => {
+        const layers = event.layers
+        layers.eachLayer(async (layer) => {
+           if (layer.gcId) await deleteGeocerca(layer.gcId)
+        })
+      })
+
+      // Cargar existentes
+      const gcs = await getGeocercas()
+      gcs.forEach(gc => {
+         let layer
+         if (gc.tipo === 'circle') layer = L.circle([gc.geometria.lat, gc.geometria.lng], { radius: gc.geometria.radius, color: '#3b82f6', weight: 2 })
+         else layer = L.polygon(gc.geometria, { color: '#3b82f6', weight: 2 })
+         layer.gcId = gc.id
+         drawnItems.value.addLayer(layer)
+      })
+    }
+  }
+}, { immediate: true })
 
 const tiposAgrupador = ['Edificio', 'Bloque', 'Villa', 'Manzana']
 

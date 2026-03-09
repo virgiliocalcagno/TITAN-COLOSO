@@ -1,13 +1,16 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useFirestore } from '../composables/useFirestore.js'
-import { Camera, ShieldCheck, ShieldAlert, ShieldX, Clock, User, Building2, DoorOpen, AlertTriangle, Truck, Keyboard, X, Search, Loader2, CheckCircle, XCircle, Bell } from 'lucide-vue-next'
+import { useAuth } from '../composables/useAuth.js'
+import { Camera, ShieldCheck, ShieldAlert, ShieldX, Clock, User as UserIcon, Building2, DoorOpen, AlertTriangle, Truck, Keyboard, X, Search, Loader2, CheckCircle, XCircle, Bell, MapPin } from 'lucide-vue-next'
 
 const {
   getInvitacionByQR, updateInvitacionEstatus, registrarActividad,
   getCondominios, getUnidades,
-  crearSolicitudDelivery, getSolicitudDelivery
+  crearSolicitudDelivery, getSolicitudDelivery, getGeocercas, updateGuardLocation
 } = useFirestore()
+
+const { user } = useAuth()
 
 // Scanner state
 const scanning = ref(false)
@@ -49,14 +52,52 @@ const deliveryUnidadesFiltradas = computed(() => {
 
 const deliveryCanSend = computed(() => deliveryCondoId.value && deliveryUnidadId.value && deliveryNombreVisitante.value.trim())
 
+// ---- GEOCERCA GPS ---
+const geocercas = ref([])
+const ubicacionGuardia = ref(null)
+let watchGpsId = null
+
+function isPointInPolygon(point, vs) {
+    let x = point.lat, y = point.lng
+    let inside = false
+    for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+        let xi = vs[i].lat, yi = vs[i].lng
+        let xj = vs[j].lat, yj = vs[j].lng
+        let intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)
+        if (intersect) inside = !inside
+    }
+    return inside
+}
+
+function isPointInCircle(point, circle) {
+    const R = 6371e3
+    const lat1 = point.lat * Math.PI/180
+    const lat2 = circle.lat * Math.PI/180
+    const dLat = (circle.lat - point.lat) * Math.PI/180
+    const dLng = (circle.lng - point.lng) * Math.PI/180
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng/2) * Math.sin(dLng/2)
+    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))) <= circle.radius
+}
+
 onMounted(async () => {
   condominios.value = await getCondominios() || []
   unidades.value = await getUnidades() || []
+  geocercas.value = await getGeocercas() || []
+
+  if (navigator.geolocation) {
+     watchGpsId = navigator.geolocation.watchPosition(pos => {
+        ubicacionGuardia.value = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+        if (user.value) {
+            updateGuardLocation(user.value.uid || user.value.id || 'guard-01', user.value.nombre || user.value.email || 'Vigilante', pos.coords.latitude, pos.coords.longitude)
+        }
+     }, err => console.warn('Sin GPS', err), { enableHighAccuracy: true })
+  }
 })
 
 onUnmounted(() => {
   stopScanner()
   if (deliveryPollInterval) clearInterval(deliveryPollInterval)
+  if (watchGpsId && navigator.geolocation) navigator.geolocation.clearWatch(watchGpsId)
 })
 
 // ---- QR Scanner ----
@@ -169,6 +210,33 @@ function resetEscaneo() {
 }
 
 async function aprobarAcceso() {
+  if (geocercas.value.length > 0) {
+    if (!ubicacionGuardia.value) {
+       showToast("⚠️ Esperando ubicación GPS requerida por seguridad", "warning")
+       return
+    }
+    let insideAny = false
+    for (const gc of geocercas.value) {
+       if (gc.tipo === 'circle') { if (isPointInCircle(ubicacionGuardia.value, gc.geometria)) insideAny = true }
+       else { if (isPointInPolygon(ubicacionGuardia.value, gc.geometria)) insideAny = true }
+    }
+    if (!insideAny) {
+       showToast("⛔ Bloqueo SOC: Estás fuera del perímetro de la geocerca permitida.", "error")
+       await registrarActividad({
+         accion: 'Alerta SOC: Escaneo fuera de Geocerca',
+         visitante: datosEscaneados.value?.nombreVisitante || 'Desconocido',
+         unidad: datosEscaneados.value?.unidadNumero || 'N/A',
+         unidadId: datosEscaneados.value?.unidadId || null,
+         condominio: datosEscaneados.value?.condominioNombre || 'N/A',
+         condominioId: datosEscaneados.value?.condominioId || null,
+         propietarioId: datosEscaneados.value?.propietarioId || null,
+         hora: 'Ahora', tipo: 'denegado'
+       })
+       setTimeout(() => resetEscaneo(), 2000)
+       return
+    }
+  }
+
   if (datosEscaneados.value) {
     await updateInvitacionEstatus(datosEscaneados.value.id, 'Ingresado')
     await registrarActividad({
@@ -368,7 +436,7 @@ function resetDelivery() {
     <div v-if="datosEscaneados" class="glass-card p-4 space-y-3">
       <h3 class="text-sm font-semibold text-white/60 uppercase tracking-wider">Detalles del Acceso</h3>
       <div class="space-y-2">
-        <div class="flex items-center gap-3 py-2"><User class="w-4 h-4 text-white/40 flex-shrink-0" /><div class="flex-1"><p class="text-xs text-white/40">Visitante</p><p class="text-sm font-medium">{{ datosEscaneados.nombreVisitante }}</p></div>
+        <div class="flex items-center gap-3 py-2"><UserIcon class="w-4 h-4 text-white/40 flex-shrink-0" /><div class="flex-1"><p class="text-xs text-white/40">Visitante</p><p class="text-sm font-medium">{{ datosEscaneados.nombreVisitante }}</p></div>
           <span class="text-xs px-2 py-1 rounded-full" :class="datosEscaneados.tipo === 'Huesped' ? 'bg-titan-500/20 text-titan-400' : datosEscaneados.tipo === 'Tecnico' ? 'bg-purple-500/20 text-purple-400' : datosEscaneados.tipo === 'Familiar' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'">{{ datosEscaneados.tipo }}</span>
         </div>
         <div class="h-px bg-white/5"></div>
