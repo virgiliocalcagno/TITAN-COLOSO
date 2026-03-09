@@ -5,7 +5,7 @@ import { useAuth } from '../composables/useAuth.js'
 import { Camera, ShieldCheck, ShieldAlert, ShieldX, Clock, User as UserIcon, Building2, DoorOpen, AlertTriangle, Truck, Keyboard, X, Search, Loader2, CheckCircle, XCircle, Bell, MapPin } from 'lucide-vue-next'
 
 const {
-  getInvitacionByQR, updateInvitacionEstatus, registrarActividad,
+  getInvitacionByQR, updateInvitacionEstatus, registrarActividad, subscribeToGeocercas,
   getCondominios, getUnidades,
   crearSolicitudDelivery, getSolicitudDelivery, getGeocercas, updateGuardLocation
 } = useFirestore()
@@ -57,23 +57,32 @@ const geocercas = ref([])
 const ubicacionGuardia = ref(null)
 const selectedPOI = ref('') // Garita seleccionada
 let watchGpsId = null
+let unsubscribeGeocercas = null
 
 const pois = computed(() => geocercas.value.filter(g => g.tipo === 'marker'))
+const perimetros = computed(() => geocercas.value.filter(g => g.tipo === 'polygon' || g.tipo === 'circle'))
 
 const isInSecureZone = computed(() => {
-    if (!ubicacionGuardia.value || geocercas.value.length === 0) return false
-    // Solo validamos perímetros (polígonos/círculos)
-    const perimetros = geocercas.value.filter(g => g.tipo !== 'marker')
-    if (perimetros.length === 0) return true // Si no hay áreas definidas, permitimos todo por ahora
+    if (!ubicacionGuardia.value || !geocercas.value?.length) return false
+    
+    // Si no hay perímetros definidos en el sistema, permitimos por ahora para no bloquear
+    if (perimetros.value.length === 0) return true 
 
-    return perimetros.some(p => {
-        if (p.tipo === 'circle') return isPointInCircle(ubicacionGuardia.value, p.geometria)
-        if (p.tipo === 'polygon') return isPointInPolygon(ubicacionGuardia.value, p.geometria)
+    return perimetros.value.some(p => {
+        try {
+            if (p.tipo === 'circle') return isPointInCircle(ubicacionGuardia.value, p.geometria)
+            if (p.tipo === 'polygon') return isPointInPolygon(ubicacionGuardia.value, p.geometria)
+        } catch (e) {
+            console.error("Error validando zona:", e, p)
+        }
         return false
     })
 })
 
+const gpsPrecision = ref(null)
+
 function isPointInPolygon(point, vs) {
+    if (!vs || !Array.isArray(vs) || vs.length < 3) return false
     let x = point.lat, y = point.lng
     let inside = false
     for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
@@ -98,22 +107,30 @@ function isPointInCircle(point, circle) {
 onMounted(async () => {
   condominios.value = await getCondominios() || []
   unidades.value = await getUnidades() || []
-  geocercas.value = await getGeocercas() || []
+  
+  unsubscribeGeocercas = subscribeToGeocercas((data) => {
+     geocercas.value = data
+  })
 
   if (navigator.geolocation) {
      watchGpsId = navigator.geolocation.watchPosition(pos => {
         ubicacionGuardia.value = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+        gpsPrecision.value = Math.round(pos.coords.accuracy)
         if (user.value) {
             updateGuardLocation(user.value.uid || user.value.id || 'guard-01', user.value.nombre || user.value.email || 'Vigilante', pos.coords.latitude, pos.coords.longitude)
         }
-     }, err => console.warn('Sin GPS', err), { enableHighAccuracy: true })
+     }, err => {
+        console.warn('Sin GPS', err)
+        gpsPrecision.value = null
+     }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 })
   }
 })
 
 onUnmounted(() => {
   stopScanner()
   if (deliveryPollInterval) clearInterval(deliveryPollInterval)
-  if (watchGpsId && navigator.geolocation) navigator.geolocation.clearWatch(watchGpsId)
+  if (watchGpsId) navigator.geolocation.clearWatch(watchGpsId)
+  if (unsubscribeGeocercas) unsubscribeGeocercas()
 })
 
 // ---- QR Scanner ----
@@ -230,20 +247,10 @@ function resetEscaneo() {
 }
 
 async function aprobarAcceso() {
-  if (geocercas.value.length > 0) {
-    if (!ubicacionGuardia.value) {
-       showToast("⚠️ Esperando ubicación GPS requerida por seguridad", "warning")
-       return
-    }
-    let insideAny = false
-    for (const gc of geocercas.value) {
-       if (gc.tipo === 'circle') { if (isPointInCircle(ubicacionGuardia.value, gc.geometria)) insideAny = true }
-       else { if (isPointInPolygon(ubicacionGuardia.value, gc.geometria)) insideAny = true }
-    }
-    if (!insideAny) {
+    if (!isInSecureZone.value) {
        showToast("⛔ Bloqueo SOC: Estás fuera del perímetro de la geocerca permitida.", "error")
        await registrarActividad({
-         accion: 'Alerta SOC: Escaneo fuera de Geocerca',
+         accion: 'Alerta SOC: Intento de escaneo fuera de zona',
          visitante: datosEscaneados.value?.nombreVisitante || 'Desconocido',
          unidad: datosEscaneados.value?.unidadNumero || 'N/A',
          unidadId: datosEscaneados.value?.unidadId || null,
@@ -255,7 +262,6 @@ async function aprobarAcceso() {
        setTimeout(() => resetEscaneo(), 2000)
        return
     }
-  }
 
   if (datosEscaneados.value) {
     await updateInvitacionEstatus(datosEscaneados.value.id, 'Ingresado')
@@ -406,7 +412,11 @@ function resetDelivery() {
       <div class="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">
         <div class="flex items-center gap-3">
           <div class="w-2 h-2 rounded-full" :class="ubicacionGuardia ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'"></div>
-          <span class="text-xs font-medium text-white/70">GPS: {{ ubicacionGuardia ? 'Conectado' : 'Buscando...' }}</span>
+          <div class="flex flex-col">
+            <span class="text-[10px] font-medium text-white/70">GPS: {{ ubicacionGuardia ? 'Conectado' : 'Buscando...' }}</span>
+            <span v-if="gpsPrecision" class="text-[9px] text-white/40">Precisión: ±{{ gpsPrecision }}m</span>
+            <span v-if="ubicacionGuardia" class="text-[8px] text-white/30 font-mono">{{ ubicacionGuardia.lat.toFixed(6) }}, {{ ubicacionGuardia.lng.toFixed(6) }}</span>
+          </div>
         </div>
         <div class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-tighter"
           :class="isInSecureZone ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'">

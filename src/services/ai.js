@@ -1,7 +1,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
-// Configuración de la IA
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || ''
+const genAI = new GoogleGenerativeAI(API_KEY)
+const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
 /**
  * Comprime una imagen base64 a un tamaño manejable para la API de Gemini.
@@ -40,18 +41,8 @@ function comprimirImagen(base64Image, maxWidth = 1024) {
 }
 
 export async function extraerDatosDocumento(base64Image) {
-    if (!API_KEY) {
-        throw new Error('Falta la API Key de Gemini. Por favor configure VITE_GEMINI_API_KEY en su archivo .env.')
-    }
-
-    console.log('[OCR] Iniciando análisis con gemini-2.5-flash...')
-    console.log('[OCR] API Key presente:', API_KEY ? 'SÍ (' + API_KEY.substring(0, 8) + '...)' : 'NO')
-
     // Comprimir imagen antes de enviar
     const imagenComprimida = await comprimirImagen(base64Image)
-
-    const genAI = new GoogleGenerativeAI(API_KEY)
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
 
     // Limpiar el encabezado data:image/jpeg;base64,
     const base64Data = imagenComprimida.split(',')[1]
@@ -59,8 +50,6 @@ export async function extraerDatosDocumento(base64Image) {
     if (!base64Data) {
         throw new Error('La imagen capturada está vacía o en formato inválido.')
     }
-
-    console.log('[OCR] Datos base64 listos, tamaño:', Math.round(base64Data.length / 1024), 'KB')
 
     const prompt = `Analiza detenidamente esta imagen de un documento de identidad. 
     Tu objetivo es extraer información clave para registrar a un visitante.

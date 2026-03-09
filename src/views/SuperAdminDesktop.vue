@@ -1206,7 +1206,7 @@ import {
   getAsignaciones, addAsignacion, removeAsignacion, editarAsignacion,
   getActividadByCondominio, subscribeToActividadGlobal,
   getGeocercas, addGeocerca, deleteGeocerca, subscribeToGuardias,
-  addAgrupador, deleteAgrupador, updateCondominio
+  addAgrupador, deleteAgrupador, updateCondominio, updateGeocerca
 } from '../firebase/firestore.js'
 
 const router = useRouter()
@@ -1398,13 +1398,41 @@ watch(activeTab, async (newVal) => {
       drawnItems.value = new L.FeatureGroup()
       mapInstance.value.addLayer(drawnItems.value)
       
+      // Localización de Leaflet.draw a Español
+      L.drawLocal.draw.toolbar.buttons.polygon = 'Dibujar perímetro (Geocerca)'
+      L.drawLocal.draw.toolbar.buttons.marker = 'Marcar punto de interés'
+      L.drawLocal.draw.toolbar.buttons.circle = 'Dibujar zona circular'
+      L.drawLocal.draw.handlers.polygon.tooltip.start = 'Clic para iniciar el perímetro.'
+      L.drawLocal.draw.handlers.polygon.tooltip.cont = 'Clic para añadir otro punto.'
+      L.drawLocal.draw.handlers.polygon.tooltip.end = 'Clic en el primer punto para cerrar.'
+      L.drawLocal.draw.handlers.marker.tooltip.start = 'Clic en el mapa para situar la garita/punto.'
+      L.drawLocal.draw.toolbar.undo.text = 'Retroceder'
+      L.drawLocal.draw.toolbar.undo.title = 'Eliminar último punto'
+      L.drawLocal.draw.toolbar.actions.text = 'Cancelar'
+      L.drawLocal.draw.toolbar.finish.text = 'Finalizar'
+      L.drawLocal.edit.toolbar.actions.save.text = 'Guardar'
+      L.drawLocal.edit.toolbar.actions.cancel.text = 'Cancelar'
+      L.drawLocal.edit.handlers.edit.tooltip.text = 'Arrastra los puntos para cambiar la forma.'
+      L.drawLocal.edit.handlers.remove.tooltip.text = 'Clic en un elemento para borrar.'
+
       drawControl.value = new L.Control.Draw({
-        edit: { featureGroup: drawnItems.value, remove: true },
+        edit: { 
+          featureGroup: drawnItems.value, 
+          remove: true,
+          allowIntersection: true
+        },
         draw: {
-          polygon: { allowIntersection: false, showArea: true, shapeOptions: { color: '#3b82f6', weight: 2 } },
-          polyline: false, circlemarker: false, rectangle: false, 
+          polygon: { 
+            allowIntersection: true, 
+            showArea: true, 
+            metric: true,
+            shapeOptions: { color: '#8b5cf6', weight: 3, fillOpacity: 0.2, dashArray: '5, 5' } 
+          },
+          polyline: false, 
+          circlemarker: false, 
+          rectangle: false, 
           marker: { icon: new L.Icon.Default() },
-          circle: { shapeOptions: { color: '#3b82f6', weight: 2 } }
+          circle: { shapeOptions: { color: '#06b6d4', weight: 3, fillOpacity: 0.2 } }
         }
       })
       mapInstance.value.addControl(drawControl.value)
@@ -1429,13 +1457,49 @@ watch(activeTab, async (newVal) => {
         })
       })
 
+      mapInstance.value.on(L.Draw.Event.EDITED, async (event) => {
+        const layers = event.layers
+        layers.eachLayer(async (layer) => {
+           if (!layer.gcId) return
+           
+           const type = layer instanceof L.Circle ? 'circle' : (layer instanceof L.Marker ? 'marker' : 'polygon')
+           let geometria
+           
+           if (type === 'marker') {
+             geometria = { lat: layer.getLatLng().lat, lng: layer.getLatLng().lng }
+           } else if (type === 'circle') {
+             geometria = { lat: layer.getLatLng().lat, lng: layer.getLatLng().lng, radius: layer.getRadius() }
+           } else {
+             // Polígonos multipunto
+             geometria = layer.getLatLngs()[0].map(ll => ({ lat: ll.lat, lng: ll.lng }))
+           }
+
+           try {
+             await updateGeocerca(layer.gcId, { geometria })
+             // Actualizar geocerca localmente
+             const idx = geocercas.value.findIndex(g => g.id === layer.gcId)
+             if (idx !== -1) geocercas.value[idx].geometria = geometria
+           } catch (e) {
+             console.error("Error al actualizar geocerca:", e)
+             alert("Error al guardar cambios: " + e.message)
+           }
+        })
+      })
+
       // Cargar existentes
       const gcs = await getGeocercas()
       gcs.forEach(gc => {
          let layer
-         if (gc.tipo === 'circle') layer = L.circle([gc.geometria.lat, gc.geometria.lng], { radius: gc.geometria.radius, color: '#3b82f6', weight: 2 })
-         else layer = L.polygon(gc.geometria, { color: '#3b82f6', weight: 2 })
+         if (gc.tipo === 'circle') {
+           layer = L.circle([gc.geometria.lat, gc.geometria.lng], { radius: gc.geometria.radius, color: '#06b6d4', weight: 3, fillOpacity: 0.2 })
+         } else if (gc.tipo === 'marker') {
+           layer = L.marker([gc.geometria.lat, gc.geometria.lng], { icon: new L.Icon.Default() })
+         } else {
+           layer = L.polygon(gc.geometria, { color: '#8b5cf6', weight: 3, fillOpacity: 0.2, dashArray: '5, 5' })
+         }
          layer.gcId = gc.id
+         // Añadir Tooltip permanente con el nombre
+         layer.bindTooltip(gc.nombre, { permanent: true, direction: 'top', className: 'bg-gray-900 border-none text-white text-[10px] font-bold px-1 rounded shadow' })
          drawnItems.value.addLayer(layer)
       })
     }

@@ -90,6 +90,13 @@ export function useFirestore() {
     const crearSolicitudDelivery = (data) => execute(firestoreService.crearSolicitudDelivery, data)
     const responderSolicitudDelivery = (id, resp, uid) => execute(firestoreService.responderSolicitudDelivery, id, resp, uid)
     const getSolicitudDelivery = (id) => execute(firestoreService.getSolicitudDelivery, id)
+    const getGeocercas = () => execute(firestoreService.getGeocercas)
+    const addGeocerca = (data) => execute(firestoreService.addGeocerca, data)
+    const updateGeocerca = (id, data) => execute(firestoreService.updateGeocerca, id, data)
+    const deleteGeocerca = (id) => execute(firestoreService.deleteGeocerca, id)
+    const updateGuardLocation = (uid, name, lat, lng) => execute(firestoreService.updateGuardLocation, uid, name, lat, lng)
+    const subscribeToGuardias = (callback) => firestoreService.subscribeToGuardias(callback)
+    const subscribeToGeocercas = (callback) => firestoreService.subscribeToGeocercas(callback)
 
     return {
         loading,
@@ -151,5 +158,13 @@ export function useFirestore() {
         crearSolicitudDelivery,
         responderSolicitudDelivery,
         getSolicitudDelivery,
+        // Geocercas & SOC
+        getGeocercas,
+        addGeocerca,
+        updateGeocerca,
+        deleteGeocerca,
+        updateGuardLocation,
+        subscribeToGuardias,
+        subscribeToGeocercas
     }
 }

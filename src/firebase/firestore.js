@@ -1520,6 +1520,18 @@ export async function deleteGeocerca(id) {
     await deleteDoc(doc(db, 'geocercas', id))
 }
 
+export async function updateGeocerca(id, data) {
+    if (MOCK_MODE) return true
+    await updateDoc(doc(db, 'geocercas', id), { ...data, updatedAt: serverTimestamp() })
+}
+
+export function subscribeToGeocercas(callback) {
+    if (MOCK_MODE) return () => { }
+    return onSnapshot(collection(db, 'geocercas'), (snap) => {
+        callback(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    })
+}
+
 export async function updateGuardLocation(userId, nombre, lat, lng) {
     if (MOCK_MODE) return
     await setDoc(doc(db, 'ubicaciones_guardias', userId), {
