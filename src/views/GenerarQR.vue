@@ -298,10 +298,21 @@ async function compartirWhatsApp() {
   if (!gafeteRef.value) return
   isLoading.value = true
   try {
+    // Pequeño delay para asegurar renderizado de QR
+    await new Promise(r => setTimeout(r, 300))
+
     const dataUrl = await htmlToImage.toPng(gafeteRef.value, { 
       quality: 0.95,
-      pixelRatio: 2, // Retína quality
-      style: { borderRadius: '0' } // Evitar esquinas transparentes negras
+      pixelRatio: 3, // Mayor calidad para compartir
+      cacheBust: true,
+      style: { borderRadius: '0' },
+      filter: (node) => {
+        // Filtrar elementos que puedan causar errores de CORS o que no queramos en la captura
+        if (node.tagName === 'LINK' && node.rel === 'stylesheet' && !node.href.includes(window.location.origin)) {
+          return false;
+        }
+        return true;
+      }
     })
     
     const blob = await (await fetch(dataUrl)).blob()

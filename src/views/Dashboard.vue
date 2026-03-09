@@ -6,7 +6,7 @@ import { Building2, Users, QrCode, ShieldCheck, TrendingUp, ArrowUpRight, Clock,
 import QRCode from 'qrcode'
 
 const { userId, userName } = useAuth()
-const { getCondominios, getUnidadesByPropietario, getInvitacionesByPropietario, getActividadReciente, anularInvitacion, getAsignacionesByUsuario } = useFirestore()
+const { getCondominios, getUnidadesByPropietario, getInvitacionesByPropietario, getActividadByUnidades, anularInvitacion, getAsignacionesByUsuario } = useFirestore()
 
 const condominios = ref([])
 const unidades = ref([])
@@ -17,11 +17,10 @@ const isLoading = ref(true)
 
 async function cargarDatos() {
   console.log('📊 DASHBOARD: userId.value =', userId.value)
-  const [c, asignaciones, i, a] = await Promise.all([
+  const [c, asignaciones, i] = await Promise.all([
     getCondominios(),
     getAsignacionesByUsuario(userId.value),
-    getInvitacionesByPropietario(userId.value),
-    getActividadReciente(5)
+    getInvitacionesByPropietario(userId.value)
   ])
   console.log('📊 DASHBOARD: asignaciones recibidas =', asignaciones)
   
@@ -35,8 +34,8 @@ async function cargarDatos() {
     condominioId: asig.condominio_id,
     condominioNombre: asig.condominio_nombre || '',
     codigo_unidad: asig.unidad_codigo || '',
-    numero: asig.unidad_codigo || '', // Esperado por la UI
-    idDisplay: asig.unidad_id ? asig.unidad_id.substring(0, 6).toUpperCase() : '', // Esperado por la UI
+    numero: asig.unidad_codigo || '',
+    idDisplay: asig.unidad_id ? asig.unidad_id.substring(0, 6).toUpperCase() : '',
     agrupadorNombre: asig.agrupador_nombre || '',
     rol_vinculado: asig.rol_vinculado || '',
     propietarioId: asig.usuario_id,
@@ -44,7 +43,15 @@ async function cargarDatos() {
   }))
   console.log('📊 DASHBOARD: unidades.value =', unidades.value)
   invitaciones.value = i || []
-  actividad.value = a || []
+
+  // 🔒 PRIVACIDAD: Solo cargar actividad de MIS unidades asignadas
+  const misUnidadIds = unidades.value.map(u => u.id).filter(Boolean)
+  const misUnidadNombres = unidades.value.map(u => u.codigo_unidad || u.numero).filter(Boolean)
+  if (misUnidadIds.length > 0) {
+    actividad.value = await getActividadByUnidades(misUnidadIds, misUnidadNombres, 5) || []
+  } else {
+    actividad.value = []
+  }
   isLoading.value = false
 }
 

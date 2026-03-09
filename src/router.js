@@ -81,4 +81,13 @@ router.beforeEach((to, from) => {
     return true
 })
 
+// Error Handler para fallos de carga de chunks (dinámicos)
+router.onError((error) => {
+    if (error.message.includes('Failed to fetch dynamically imported module') ||
+        error.message.includes('Importing a module script failed')) {
+        console.warn('⚠️ Fallo en carga de módulo detectado. Recargando página para actualizar versión...')
+        window.location.reload()
+    }
+})
+
 export default router

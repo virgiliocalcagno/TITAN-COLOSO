@@ -175,7 +175,10 @@ async function aprobarAcceso() {
       accion: 'Acceso aprobado',
       visitante: datosEscaneados.value.nombreVisitante,
       unidad: datosEscaneados.value.unidadNumero,
+      unidadId: datosEscaneados.value.unidadId || null,
       condominio: datosEscaneados.value.condominioNombre,
+      condominioId: datosEscaneados.value.condominioId || null,
+      propietarioId: datosEscaneados.value.propietarioId || null,
       hora: 'Ahora', tipo: 'entrada'
     })
   }
@@ -188,7 +191,10 @@ async function denegarAcceso() {
     accion: 'Acceso denegado',
     visitante: datosEscaneados.value?.nombreVisitante || 'Desconocido',
     unidad: datosEscaneados.value?.unidadNumero || 'N/A',
+    unidadId: datosEscaneados.value?.unidadId || null,
     condominio: datosEscaneados.value?.condominioNombre || 'N/A',
+    condominioId: datosEscaneados.value?.condominioId || null,
+    propietarioId: datosEscaneados.value?.propietarioId || null,
     hora: 'Ahora', tipo: 'denegado'
   })
   showToast('❌ Acceso denegado. Propietario notificado.', 'error')

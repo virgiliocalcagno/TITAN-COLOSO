@@ -358,6 +358,53 @@ export async function registrarActividad(data) {
     await addDoc(collection(db, 'actividad'), { ...data, createdAt: serverTimestamp() })
 }
 
+// Obtener actividad filtrada por unidades del usuario (PRIVACIDAD)
+export async function getActividadByUnidades(unidadIds, unidadNombres = [], limit = 10) {
+    if (!unidadIds || unidadIds.length === 0) return []
+
+    if (MOCK_MODE) {
+        return seedActividad
+            .filter(a => unidadIds.includes(a.unidadId) || unidadNombres.includes(a.unidad))
+            .slice(0, limit)
+    }
+
+    // Firestore limita queries 'in' a 30 items
+    const idsSlice = unidadIds.slice(0, 30)
+
+    // Buscar actividad que tenga unidadId (registros nuevos enriquecidos)
+    const q = query(
+        collection(db, 'actividad'),
+        where('unidadId', 'in', idsSlice),
+        orderBy('createdAt', 'desc')
+    )
+    const snap = await getDocs(q)
+    let results = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+
+    // Fallback: también buscar registros antiguos que solo tienen nombre de unidad
+    if (results.length < limit && unidadNombres.length > 0) {
+        const nombresSlice = unidadNombres.slice(0, 30)
+        const q2 = query(
+            collection(db, 'actividad'),
+            where('unidad', 'in', nombresSlice),
+            orderBy('createdAt', 'desc')
+        )
+        const snap2 = await getDocs(q2)
+        const existingIds = new Set(results.map(r => r.id))
+        const extras = snap2.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .filter(r => !existingIds.has(r.id))
+        results = [...results, ...extras]
+    }
+
+    // Ordenar y limitar
+    results.sort((a, b) => {
+        const ta = a.createdAt?.seconds || a.createdAt || 0
+        const tb = b.createdAt?.seconds || b.createdAt || 0
+        return tb - ta
+    })
+    return results.slice(0, limit)
+}
+
 // ============================================
 // ADMIN: CRUD CONDOMINIOS
 // ============================================

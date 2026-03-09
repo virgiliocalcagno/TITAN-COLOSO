@@ -43,6 +43,7 @@ export function useFirestore() {
     // Actividad / Pases
     const getSiguientePase = () => execute(firestoreService.getSiguientePase)
     const getActividadReciente = (limit) => execute(firestoreService.getActividadReciente, limit)
+    const getActividadByUnidades = (ids, nombres, limit) => execute(firestoreService.getActividadByUnidades, ids, nombres, limit)
     const registrarActividad = (data) => execute(firestoreService.registrarActividad, data)
 
     // Usuarios (Módulo 2)
@@ -94,6 +95,7 @@ export function useFirestore() {
         // Actividad / Pases
         getSiguientePase,
         getActividadReciente,
+        getActividadByUnidades,
         registrarActividad,
         // Usuarios
         getUsuarios,
