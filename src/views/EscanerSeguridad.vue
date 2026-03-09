@@ -59,8 +59,46 @@ const selectedPOI = ref('') // Garita seleccionada
 let watchGpsId = null
 let unsubscribeGeocercas = null
 
-const pois = computed(() => geocercas.value.filter(g => g.tipo === 'marker'))
+const pois = computed(() => {
+    if (!geocercas.value?.length) return []
+    const allPois = geocercas.value.filter(g => g.tipo === 'marker')
+    const allPerimetros = geocercas.value.filter(g => g.tipo === 'polygon' || g.tipo === 'circle')
+    
+    // Si no hay perímetros definidos en el sistema, mostramos todas
+    if (allPerimetros.length === 0) return allPois
+    if (!ubicacionGuardia.value) return []
+
+    // 1. Encontrar perímetros donde ESTÁ el guardia
+    const currentPerimeters = allPerimetros.filter(p => {
+        if (p.tipo === 'circle') return isPointInCircle(ubicacionGuardia.value, p.geometria)
+        if (p.tipo === 'polygon') return isPointInPolygon(ubicacionGuardia.value, p.geometria)
+        return false
+    })
+
+    if (currentPerimeters.length === 0) return []
+
+    // 2. Mostrar solo garitas que estén dentro de ESOS mismos perímetros
+    return allPois.filter(poi => {
+        return currentPerimeters.some(p => {
+            if (p.tipo === 'circle') return isPointInCircle(poi.geometria, p.geometria)
+            if (p.tipo === 'polygon') return isPointInPolygon(poi.geometria, p.geometria)
+            return false
+        })
+    })
+})
+
 const perimetros = computed(() => geocercas.value.filter(g => g.tipo === 'polygon' || g.tipo === 'circle'))
+
+// Auto-selección inteligente
+watch(pois, (newPois) => {
+    if (newPois.length === 1 && !selectedPOI.value) {
+        selectedPOI.value = newPois[0].nombre
+    } else if (newPois.length === 0) {
+        selectedPOI.value = ''
+    } else if (selectedPOI.value && !newPois.some(p => p.nombre === selectedPOI.value)) {
+        selectedPOI.value = ''
+    }
+}, { immediate: true })
 
 const isInSecureZone = computed(() => {
     if (!ubicacionGuardia.value || !geocercas.value?.length) return false
