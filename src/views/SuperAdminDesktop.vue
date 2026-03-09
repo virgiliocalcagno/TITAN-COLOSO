@@ -1,31 +1,65 @@
 <template>
-  <div class="min-h-screen pb-24">
-    <!-- Header -->
-    <div class="p-4 flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-bold text-white">Panel Admin</h1>
-        <p class="text-sm text-gray-400">Infraestructura, Usuarios y Asignaciones</p>
+  <div class="flex h-screen bg-dark-950 overflow-hidden font-sans">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-gray-900 border-r border-gray-800 flex flex-col z-20 shadow-xl">
+      <!-- Logo -->
+      <div class="p-6 flex items-center gap-3 border-b border-gray-800">
+        <div class="w-10 h-10 bg-gradient-to-br from-titan-500 to-titan-700 rounded-xl flex items-center justify-center shadow-lg shadow-titan-500/30">
+          <span class="text-lg font-bold text-white">T</span>
+        </div>
+        <div>
+          <h1 class="text-sm font-bold text-white tracking-wide">TITAN COLOSO</h1>
+          <p class="text-[10px] text-titan-400 uppercase tracking-widest">Super Admin</p>
+        </div>
       </div>
-      <div class="flex gap-2 text-xs">
-        <div class="bg-purple-500/20 text-purple-300 px-3 py-1 rounded-full">{{ stats.totalCondominios }} condominios</div>
-        <div class="bg-emerald-500/20 text-emerald-300 px-3 py-1 rounded-full">{{ stats.totalUsuarios || 0 }} usuarios</div>
+      
+      <!-- Nav -->
+      <nav class="flex-1 px-3 py-6 space-y-2 overflow-y-auto custom-scrollbar">
+        <button v-for="tab in tabs" :key="tab.id" @click="activeTab = tab.id"
+          :class="activeTab === tab.id ? 'bg-purple-500/10 text-purple-400 border-purple-500/30 shadow-sm' : 'text-gray-400 hover:bg-gray-800/50 hover:text-white border-transparent'"
+          class="w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium transition-all group">
+          <component :is="tab.icon" :size="20" :class="activeTab === tab.id ? 'text-purple-400' : 'text-gray-500 group-hover:text-gray-300'" />
+          {{ tab.label }}
+        </button>
+      </nav>
+
+      <!-- Logout -->
+      <div class="p-4 border-t border-gray-800">
+        <button @click="handleLogout" class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400/80 hover:bg-red-500/10 hover:text-red-400 transition-all border border-transparent hover:border-red-500/20">
+          <LogOut :size="20" />
+          Cerrar Sesion
+        </button>
       </div>
-    </div>
+    </aside>
 
-    <!-- Tabs -->
-    <div class="flex gap-1 mx-4 p-1 bg-gray-800/50 rounded-xl border border-gray-700/40 overflow-x-auto">
-      <button v-for="tab in tabs" :key="tab.id"
-        @click="activeTab = tab.id"
-        :class="activeTab === tab.id ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'"
-        class="flex-1 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1.5 whitespace-nowrap min-w-0 px-2">
-        <component :is="tab.icon" :size="14" />
-        <span class="hidden sm:inline">{{ tab.label }}</span>
-        <span class="sm:hidden">{{ tab.short }}</span>
-      </button>
-    </div>
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col overflow-hidden relative">
+      <!-- Top header -->
+      <header class="h-20 bg-gray-900/50 border-b border-gray-800 px-8 flex items-center justify-between sticky top-0 z-10 backdrop-blur-md">
+        <div>
+          <h2 class="text-2xl font-bold text-white tracking-tight">{{ currentTabLabel }}</h2>
+          <p class="text-sm text-gray-400">{{ currentTabDesc }}</p>
+        </div>
+        <div class="flex items-center gap-4">
+          <div class="bg-gray-800 border border-gray-700 text-gray-300 px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-widest flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+            SOC Activo
+          </div>
+          <div class="text-right">
+            <p class="text-sm font-bold text-white">Administrador</p>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-orange-600 flex items-center justify-center shadow-lg">
+            <User :size="20" class="text-white" />
+          </div>
+        </div>
+      </header>
 
+      <!-- Scrollable Tab Content -->
+      <div class="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
+        <div class="max-w-7xl mx-auto pb-12">
+          
     <!-- Tab: Condominios -->
-    <div v-if="activeTab === 'condominios'" class="p-4 space-y-4">
+    <div v-if="activeTab === 'condominios'" class="space-y-4">
       <div class="bg-gray-800/50 rounded-2xl border border-gray-700/40 p-4">
         <h3 class="text-white font-semibold mb-3 flex items-center gap-2">
           <Plus :size="18" class="text-purple-400" /> Nuevo Condominio
@@ -845,6 +879,9 @@
       </div>
     </div>
 
+        </div> <!-- End max-w-7xl -->
+      </div> <!-- End Scrollable Area -->
+    </main>
   </div>
 </template>
 
@@ -854,7 +891,7 @@ import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth.js'
 import { 
   Building2, Plus, Trash2, Search, Check, X, Pencil, Loader2, CheckCircle, 
-  LayoutGrid, Wand2, List, Users, UserPlus, Link, AlertTriangle, History, LogIn, FileText, Mail, ChevronDown, User
+  LayoutGrid, Wand2, List, Users, UserPlus, Link, AlertTriangle, History, LogIn, FileText, Mail, ChevronDown, User, LogOut
 } from 'lucide-vue-next'
 import {
   getCondominios, getUnidades, getAgrupadores, getAdminStats,
@@ -867,7 +904,18 @@ import {
 } from '../firebase/firestore.js'
 
 const router = useRouter()
-const { resetPassword } = useAuth()
+const { resetPassword, logout } = useAuth()
+
+const currentTabLabel = computed(() => tabs.find(t => t.id === activeTab.value)?.label || '')
+const currentTabDesc = computed(() => {
+  const m = { condominios: 'Gestión de recintos y bitácoras', wizard: 'Generación múltiple de unidades', unidades: 'Inventario de unidades lógicas', usuarios: 'Control de identidades', asignaciones: 'Asignación de activos a usuarios' }
+  return m[activeTab.value] || ''
+})
+
+async function handleLogout() {
+  await logout()
+  router.push('/login')
+}
 
 // State
 const condominios = ref([])

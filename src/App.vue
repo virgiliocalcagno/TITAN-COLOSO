@@ -11,7 +11,7 @@ const { user, isAuthenticated, userRole, userName, isPropietario, isVigilante, i
 const { propiedades, propiedadActiva, requireSelection, propiedadLabel, tieneMultiples, tieneSoloUna, rolActivo, cargarPropiedades, seleccionarPropiedad, limpiarSeleccion } = usePropertySelector()
 
 const currentPath = computed(() => route.path)
-const isLoginPage = computed(() => route.name === 'login')
+const isStandalonePage = computed(() => ['login', 'super-admin'].includes(route.name))
 const showPropertySwitcher = ref(false)
 
 // Smart property selector: show overlay only if multi-unit AND non-vigilante AND non-admin
@@ -32,10 +32,9 @@ const navItems = computed(() => {
   const baseRole = userRole.value
   const activeRole = rolActivo.value
 
-  // Admin siempre tiene acceso completo
+  // Admin siempre tiene acceso completo operativo en móvil
   if (baseRole === 'admin') return [
     { name: 'Panel', icon: LayoutDashboard, path: '/dashboard' },
-    { name: 'Admin', icon: Settings, path: '/admin' },
     { name: 'QR', icon: QrCode, path: '/generar-qr' },
     { name: 'Escáner', icon: ScanLine, path: '/escaner' },
   ]
@@ -103,7 +102,7 @@ function cambiarPropiedad() {
 </script>
 
 <template>
-  <div v-if="isLoginPage">
+  <div v-if="isStandalonePage">
     <router-view />
   </div>
   <div v-else class="min-h-screen bg-dark-950 flex flex-col">

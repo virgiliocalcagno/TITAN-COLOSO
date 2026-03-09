@@ -619,7 +619,57 @@ export async function updateUnidad(id, data) {
 
         return updated
     }
-    await updateDoc(doc(db, 'unidades', id), data)
+
+    // 🔥 MODO REAL: Aplicar edición en la unidad misma y luego propagar en Batch
+    const docRef = doc(db, 'unidades', id)
+    const oldSnap = await getDoc(docRef)
+    if (!oldSnap.exists()) throw new Error('Unidad no encontrada')
+    const oldUnidad = oldSnap.data()
+
+    // 1. Resolver el nuevo nombre del agrupador si este cambió
+    let newAgrupadorNombre = oldUnidad.agrupadorNombre
+    if (data.agrupadorId && data.agrupadorId !== oldUnidad.agrupadorId) {
+        const agSnap = await getDoc(doc(db, 'agrupadores', data.agrupadorId))
+        if (agSnap.exists()) {
+            newAgrupadorNombre = agSnap.data().nombre
+            data.agrupadorNombre = newAgrupadorNombre
+        }
+    }
+
+    // 2. Actualizar la Unidad en Firestore
+    await updateDoc(docRef, data)
+
+    // 3. Evaluar necesidad de propagación
+    const newCodigo = data.codigo_unidad || oldUnidad.codigo_unidad
+    const oldCodigo = oldUnidad.codigo_unidad
+
+    if (newCodigo !== oldCodigo || (data.agrupadorId && data.agrupadorId !== oldUnidad.agrupadorId)) {
+        const batch = writeBatch(db)
+
+        // Propagar a Asignaciones Activas
+        const qAsig = query(collection(db, 'asignaciones_unidades'), where('unidad_id', '==', id))
+        const asigSnap = await getDocs(qAsig)
+        asigSnap.forEach(documento => {
+            const updatePayload = {
+                unidad_codigo: newCodigo,
+                agrupador_nombre: newAgrupadorNombre
+            }
+            if (data.condominioId) {
+                updatePayload.condominio_id = data.condominioId
+                updatePayload.condominio_nombre = data.condominioNombre || oldUnidad.condominioNombre
+            }
+            batch.update(documento.ref, updatePayload)
+        })
+
+        // Propagar a Invitaciones
+        const qInv = query(collection(db, 'invitaciones'), where('unidadId', '==', id))
+        const invSnap = await getDocs(qInv)
+        invSnap.forEach(documento => {
+            batch.update(documento.ref, { unidadNumero: newCodigo })
+        })
+
+        await batch.commit()
+    }
 }
 
 export async function deleteUnidad(id) {

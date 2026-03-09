@@ -6,7 +6,7 @@ const Login = () => import('./views/Login.vue')
 const Dashboard = () => import('./views/Dashboard.vue')
 const GenerarQR = () => import('./views/GenerarQR.vue')
 const EscanerSeguridad = () => import('./views/EscanerSeguridad.vue')
-const AdminPanel = () => import('./views/AdminPanel.vue')
+const SuperAdminDesktop = () => import('./views/SuperAdminDesktop.vue')
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
@@ -40,9 +40,9 @@ const router = createRouter({
             meta: { requiresAuth: true, roles: ['vigilante', 'admin'] }
         },
         {
-            path: '/admin',
-            name: 'admin',
-            component: AdminPanel,
+            path: '/super-admin',
+            name: 'super-admin',
+            component: SuperAdminDesktop,
             meta: { requiresAuth: true, roles: ['admin'] }
         }
     ]
@@ -61,7 +61,7 @@ router.beforeEach((to, from) => {
     // If user is logged in and tries to access login page
     if (to.name === 'login' && user) {
         const role = user.role || 'propietario'
-        const target = role === 'vigilante' ? 'escaner' : (role === 'admin' ? 'admin' : 'dashboard')
+        const target = role === 'vigilante' ? 'escaner' : (role === 'admin' ? 'super-admin' : 'dashboard')
         return { name: target }
     }
 

@@ -14,12 +14,31 @@ Sistema de checkpoints para restaurar la aplicación a un estado estable previo.
 | v1.3.0  | 2026-03-02 | Módulo 4: IA, OCR en Cascada e Identidad Internacional |
 | v1.4.0  | 2026-03-05 | Interfaz Escalable: Acordeón y Filtros en Asignaciones |
 | v1.5.0  | 2026-03-09 | Seguridad, Multientrada QR y UX Optimizado             |
+| v1.6.0  | 2026-03-09 | Infraestructura Desktop: Super Admin y CRUD Migrado    |
 
 ---
 
 ## Checkpoints
 
-### CP006 — v1.5.0 Seguridad, Multientrada QR y UX Optimizado ⭐ ACTUAL
+### CP007 — v1.6.0 Infraestructura Desktop: Super Admin y CRUD Migrado ⭐ ACTUAL
+
+- **Fecha**: 2026-03-09
+- **Tag**: `v1.6.0`
+- **Branch**: `main`
+- **Deploy**: [titan-coloso.web.app](https://titan-coloso.web.app)
+- **Estado**: ✅ Estable
+
+**Funcionalidades incluidas:**
+
+- **🏢 Módulo Super Admin**: Se ha extraído la funcionalidad administrativa de la PWA móvil y consolidado en una vista Desktop de gran resolución (`SuperAdminDesktop.vue`) accesible únicamente por `/super-admin`.
+- **🚀 Layout Aislado**: La nueva vista de administración cuenta con interfaz de barra lateral (Sidebar) nativa, Top-Header responsivo y desconexión global. Ya no renderiza ni se apoya en la barra inferior móvil.
+- **🛡️ Bifurcación Limpia**: Se eliminó totalmente la pestaña `[Admin]` (`⚙️`) del menú inferior en `App.vue`.
+- **📦 Migración de Infraestructura (Fase 3)**: El listado y CRUD de Condominios, Unidades y Wizard de agrupación masiva, operan desde el nuevo panel de escritorio.
+- **⚡ Propagación Inteligente de Firestore**: Al renombrar un Código de Unidad, el sistema ahora encola y ejecuta un `writeBatch` para propagar instantáneamente el nuevo código a sus Invitaciones asociadas y Asignaciones activas. Garantiza la integridad sin funciones Cloud de costo adicional.
+
+---
+
+### CP006 — v1.5.0 Seguridad, Multientrada QR y UX Optimizado
 
 - **Fecha**: 2026-03-09 09:25 AST
 - **Commit**: `0316f97`
