@@ -1,7 +1,8 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useAuth } from '../composables/useAuth.js'
 import { useFirestore } from '../composables/useFirestore.js'
+import { usePropertySelector } from '../composables/usePropertySelector.js'
 import { Building2, Users, QrCode, ShieldCheck, TrendingUp, ArrowUpRight, Clock, CheckCircle2, XCircle, AlertCircle, Truck, FileText, User, Calendar, X, Edit3 } from 'lucide-vue-next'
 import QRCode from 'qrcode'
 
