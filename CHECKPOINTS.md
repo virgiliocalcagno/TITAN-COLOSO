@@ -13,18 +13,39 @@ Sistema de checkpoints para restaurar la aplicación a un estado estable previo.
 | v1.2.0  | 2026-03-01 | Módulo 3: Operación de Accesos y Seguridad             |
 | v1.3.0  | 2026-03-02 | Módulo 4: IA, OCR en Cascada e Identidad Internacional |
 | v1.4.0  | 2026-03-05 | Interfaz Escalable: Acordeón y Filtros en Asignaciones |
+| v1.5.0  | 2026-03-09 | Seguridad, Multientrada QR y UX Optimizado             |
 
 ---
 
 ## Checkpoints
 
-### CP005 — v1.4.0 Interfaz Escalable de Asignaciones ⭐ ACTUAL
+### CP006 — v1.5.0 Seguridad, Multientrada QR y UX Optimizado ⭐ ACTUAL
 
-- **Fecha**: 2026-03-05 14:15 AST
-- **Commit**: *(Se generará al confirmar)*
-- **Tag**: `v1.4.0`
+- **Fecha**: 2026-03-09 09:25 AST
+- **Commit**: `0316f97`
+- **Tag**: `v1.5.0`
 - **Branch**: `main`
 - **Deploy**: [titan-coloso.web.app](https://titan-coloso.web.app)
+- **Estado**: ✅ Estable
+
+**Funcionalidades incluidas:**
+
+- **🔒 Corrección Crítica de Privacidad**: Actividad Reciente filtrada por unidades asignadas al usuario. Nadie puede ver movimientos de unidades ajenas. Nueva función `getActividadByUnidades()`.
+- **🔄 QR Reutilizables (Multientrada)**: Pases con estatus "Ingresado" ahora permiten re-ingreso si la fecha de vigencia no ha expirado. El guardia recibe aviso de "Re-ingreso".
+- **🚀 Navegación Directa**: Eliminada la pantalla de selección de propiedad forzada. Auto-selección de la primera propiedad disponible al iniciar sesión.
+- **📱 Dashboard Consolidado**: Eliminado botón redundante "Nuevo Acceso", filtro de propiedad condicional, lista de unidades compacta con navegación inteligente.
+- **🤖 OCR Móvil Reparado**: Restaurado modelo `gemini-2.5-flash`, compresión automática de imagen para payloads grandes.
+- **🎴 Gafete Mejorado**: Diseño edge-to-edge restaurado con bordes redondeados premium. Corrección de errores CORS al compartir por WhatsApp. Mayor calidad de imagen (pixelRatio: 3).
+- **⚡ Auto-recarga por Despliegue**: Detección automática de fallos de carga de módulos tras nuevos deploys (`router.onError`).
+- **📊 Datos de Actividad Enriquecidos**: `aprobarAcceso()` y `denegarAcceso()` ahora guardan `unidadId`, `condominioId` y `propietarioId` para filtrado jerárquico.
+
+---
+
+### CP005 — v1.4.0 Interfaz Escalable de Asignaciones
+
+- **Fecha**: 2026-03-05 14:15 AST
+- **Tag**: `v1.4.0`
+- **Branch**: `main`
 - **Estado**: ✅ Estable
 
 **Funcionalidades incluidas:**
@@ -40,10 +61,8 @@ Sistema de checkpoints para restaurar la aplicación a un estado estable previo.
 ### CP004 — v1.3.0 Inteligencia Artificial e Identidad Internacional
 
 - **Fecha**: 2026-03-02 23:59 AST
-- **Commit**: *(Se generará al confirmar)*
 - **Tag**: `v1.3.0`
 - **Branch**: `main`
-- **Deploy**: [titan-coloso.web.app](https://titan-coloso.web.app)
 - **Estado**: ✅ Estable
 
 **Funcionalidades incluidas:**
@@ -123,15 +142,18 @@ Sistema de checkpoints para restaurar la aplicación a un estado estable previo.
 git tag -l
 
 # Restaurar a un checkpoint específico
-git checkout v1.2.0   # Módulo 3 (actual)
-git checkout v1.1.0   # Módulo 2
+git checkout v1.5.0   # Seguridad y UX (actual)
+git checkout v1.4.0   # Interfaz Escalable
+git checkout v1.3.0   # IA y OCR
+git checkout v1.2.0   # Operación de Accesos
+git checkout v1.1.0   # Gestión de Identidades
 git checkout v1.0.0   # Release inicial
 
 # Volver a la última versión
 git checkout main
 
 # Crear una rama desde un checkpoint
-git checkout -b hotfix/desde-v1.1 v1.1.0
+git checkout -b hotfix/desde-v1.4 v1.4.0
 ```
 
 ---
@@ -144,4 +166,4 @@ git checkout -b hotfix/desde-v1.1 v1.1.0
 
 ## Próximo checkpoint previsto
 
-- **CP005 — v1.4.0**: Dashboard Avanzado y Explotación de Datos de Visitas
+- **CP007 — v1.6.0**: Notificaciones Push (FCM) y Reportes Avanzados
