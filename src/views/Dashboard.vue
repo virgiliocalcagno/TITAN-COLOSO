@@ -16,43 +16,58 @@ const selectedCondominio = ref('todos')
 const isLoading = ref(true)
 
 async function cargarDatos() {
-  console.log('📊 DASHBOARD: userId.value =', userId.value)
-  const [c, asignaciones, i] = await Promise.all([
-    getCondominios(),
-    getAsignacionesByUsuario(userId.value),
-    getInvitacionesByPropietario(userId.value)
-  ])
-  console.log('📊 DASHBOARD: asignaciones recibidas =', asignaciones)
-  
-  // Aislamiento de condominios: solo ver en los que tiene asignación
-  const assignedCondoIds = new Set((asignaciones || []).map(a => a.condominio_id))
-  condominios.value = (c || []).filter(condo => assignedCondoIds.has(condo.id))
+  console.log('📊 DASHBOARD: Iniciando carga para userId:', userId.value)
+  isLoading.value = true
+  try {
+    const [c, asigRaw, i] = await Promise.all([
+      getCondominios().catch(e => { console.error('❌ Error Condominios:', e); return [] }),
+      getAsignacionesByUsuario(userId.value).catch(e => { console.error('❌ Error Asignaciones:', e); return [] }),
+      getInvitacionesByPropietario(userId.value).catch(e => { console.error('❌ Error Invitaciones:', e); return [] })
+    ])
 
-  // Construir unidades desde asignaciones para compatibilidad
-  unidades.value = (asignaciones || []).map(asig => ({
-    id: asig.unidad_id,
-    condominioId: asig.condominio_id,
-    condominioNombre: asig.condominio_nombre || '',
-    codigo_unidad: asig.unidad_codigo || '',
-    numero: asig.unidad_codigo || '',
-    idDisplay: asig.unidad_id ? asig.unidad_id.substring(0, 6).toUpperCase() : '',
-    agrupadorNombre: asig.agrupador_nombre || '',
-    rol_vinculado: asig.rol_vinculado || '',
-    propietarioId: asig.usuario_id,
-    estado: 'activa'
-  }))
-  console.log('📊 DASHBOARD: unidades.value =', unidades.value)
-  invitaciones.value = i || []
+    const asignaciones = asigRaw || []
+    console.log('📊 DASHBOARD: Datos recibidos:', { condominios: c?.length, asignaciones: asignaciones.length, invitaciones: i?.length })
+    
+    // Aislamiento de condominios: solo ver en los que tiene asignación
+    const assignedCondoIds = new Set(asignaciones.map(a => a.condominio_id))
+    condominios.value = (c || []).filter(condo => assignedCondoIds.has(condo.id))
 
-  // 🔒 PRIVACIDAD: Solo cargar actividad de MIS unidades asignadas
-  const misUnidadIds = unidades.value.map(u => u.id).filter(Boolean)
-  const misUnidadNombres = unidades.value.map(u => u.codigo_unidad || u.numero).filter(Boolean)
-  if (misUnidadIds.length > 0) {
-    actividad.value = await getActividadByUnidades(misUnidadIds, misUnidadNombres, 5) || []
-  } else {
-    actividad.value = []
+    // Construir unidades desde asignaciones para compatibilidad
+    unidades.value = asignaciones.map(asig => ({
+      id: asig.unidad_id,
+      condominioId: asig.condominio_id,
+      condominioNombre: asig.condominio_nombre || 'Condominio Desconocido',
+      codigo_unidad: asig.unidad_codigo || (asig.unidad_id ? `Unidad ${asig.unidad_id.substring(0,4)}` : 'S/N'),
+      numero: asig.unidad_codigo || 'S/N',
+      idDisplay: asig.unidad_id ? asig.unidad_id.substring(0, 6).toUpperCase() : 'ERR',
+      agrupadorNombre: asig.agrupador_nombre || '',
+      rol_vinculado: asig.rol_vinculado || 'Residente',
+      propietarioId: asig.usuario_id,
+      estado: 'activa'
+    }))
+    
+    console.log('📊 DASHBOARD: Unidades procesadas:', unidades.value.length)
+    invitaciones.value = i || []
+
+    // 🔒 PRIVACIDAD: Solo cargar actividad de MIS unidades asignadas
+    const misUnidadIds = unidades.value.map(u => u.id).filter(Boolean)
+    const misUnidadNombres = unidades.value.map(u => u.codigo_unidad || u.numero).filter(Boolean)
+    
+    if (misUnidadIds.length > 0) {
+      try {
+        actividad.value = await getActividadByUnidades(misUnidadIds, misUnidadNombres, 10) || []
+      } catch (actError) {
+        console.warn('⚠️ Error al cargar actividad (posible falta de índice):', actError.message)
+        actividad.value = []
+      }
+    } else {
+      actividad.value = []
+    }
+  } catch (globalError) {
+    console.error('💥 Error crítico en Dashboard:', globalError)
+  } finally {
+    isLoading.value = false
   }
-  isLoading.value = false
 }
 
 onMounted(cargarDatos)

@@ -692,8 +692,18 @@
             </div>
             <div class="flex-1 min-w-0">
               <p class="text-white text-sm font-medium truncate">{{ u.nombre }} {{ u.apellido }}</p>
-              <p class="text-gray-400 text-[11px]">{{ formatDocumento(u.cedula, u.tipo_documento) }} · {{ u.email }}</p>
-              <p v-if="u.telefono" class="text-gray-500 text-[10px]">Tel: {{ u.telefono }}</p>
+              <div class="flex flex-wrap gap-x-2 gap-y-1 mt-0.5">
+                 <p class="text-gray-400 text-[11px]">{{ formatDocumento(u.cedula, u.tipo_documento) }} · {{ u.email }}</p>
+                 <span v-if="u.uid" class="text-[9px] bg-emerald-500/10 text-emerald-400 px-1 rounded border border-emerald-500/20">Vinculado ✅</span>
+              </div>
+              <!-- Resumen de Unidades -->
+              <div class="mt-1.5 flex gap-1.5 overflow-x-auto scrollbar-hide">
+                 <div v-for="asig in asignacionesEnriquecidas.filter(a => a.usuario_id === u.id || a.usuario_id === u.uid)" :key="asig.id"
+                   class="flex-shrink-0 px-2 py-0.5 rounded bg-gray-900/50 border border-gray-700/50 text-[9px] text-titan-400">
+                   🏢 {{ asig.unidad_codigo }}
+                 </div>
+                 <p v-if="!asignacionesEnriquecidas.some(a => a.usuario_id === u.id || a.usuario_id === u.uid)" class="text-[9px] text-gray-600 italic">Sin unidades asignadas</p>
+              </div>
             </div>
             <div class="flex flex-col items-end gap-1">
               <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold capitalize"
@@ -1792,13 +1802,18 @@ function onFiltroAsigAgrupadorChange() {
 
 const asignacionesEnriquecidas = computed(() => {
   return asignaciones.value.map(a => {
-    const usuario = usuarios.value.find(u => u.id === a.usuario_id)
+    // Buscar usuario por ID o por Email del documento original si existe
+    const usuario = usuarios.value.find(u => 
+      u.id === a.usuario_id || 
+      (u.email && a.usuario_email && u.email === a.usuario_email) ||
+      (u.uid && a.usuario_id && u.uid === a.usuario_id)
+    )
     const unidad = unidades.value.find(u => u.id === a.unidad_id)
     const condo = condominios.value.find(c => c.id === a.condominio_id)
     return {
       ...a,
       usuario_nombre: usuario ? `${usuario.nombre} ${usuario.apellido}` : 'Usuario Desconocido',
-      unidad_codigo: unidad?.codigo_unidad || 'S/N',
+      unidad_codigo: unidad?.codigo_unidad || 'Unidad Inexistente',
       condominio_nombre: condo?.nombre || 'Condominio Desconocido',
       agrupador_nombre: unidad?.agrupadorNombre || 'S/N'
     }
@@ -1873,8 +1888,11 @@ async function crearAsignacion() {
   asigError.value = ''; asigSuccess.value = ''
   try {
     await addAsignacion({
-      usuario_id: asigSelectedUser.value.id, unidad_id: asigUnidadId.value,
-      condominio_id: asigCondoId.value, rol_vinculado: asigRol.value,
+      usuario_id: asigSelectedUser.value.id, 
+      usuario_email: asigSelectedUser.value.email,
+      unidad_id: asigUnidadId.value,
+      condominio_id: asigCondoId.value, 
+      rol_vinculado: asigRol.value,
       fecha_inicio: asigFechaInicio.value || null,
       fecha_fin: asigFechaFin.value || null
     })

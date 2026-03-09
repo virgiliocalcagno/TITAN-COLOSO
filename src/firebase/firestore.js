@@ -226,16 +226,34 @@ export async function createInvitacion(data) {
 
 export async function getInvitacionesByPropietario(propietarioId) {
     if (MOCK_MODE) return seedInvitaciones.filter(i => i.propietarioId === propietarioId)
-    const q = query(
-        collection(db, 'invitaciones'),
-        where('propietarioId', '==', propietarioId)
-    )
+
+    // 1. Intentar por ID directo
+    const q = query(collection(db, 'invitaciones'), where('propietarioId', '==', propietarioId))
     const snap = await getDocs(q)
-    return snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => {
-        const dateA = a.fechaCreacion || ''
-        const dateB = b.fechaCreacion || ''
-        return dateB.localeCompare(dateA)
-    })
+    let result = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+
+    // 2. Fallback por Email si no hay resultados (para UIDs nuevos vs IDs viejos)
+    if (result.length === 0) {
+        let email = null
+        const uDoc = await getDoc(doc(db, 'usuarios', propietarioId))
+        if (uDoc.exists()) email = uDoc.data().email
+        else {
+            const uSnap = await getDocs(query(collection(db, 'usuarios'), where('uid', '==', propietarioId)))
+            if (!uSnap.empty) email = uSnap.docs[0].data().email
+        }
+
+        if (email) {
+            const usersSnap = await getDocs(query(collection(db, 'usuarios'), where('email', '==', email)))
+            const ids = usersSnap.docs.map(d => d.id)
+            if (ids.length > 0) {
+                const q2 = query(collection(db, 'invitaciones'), where('propietarioId', 'in', ids.slice(0, 10)))
+                const snap2 = await getDocs(q2)
+                result = snap2.docs.map(d => ({ id: d.id, ...d.data() }))
+            }
+        }
+    }
+
+    return result.sort((a, b) => (b.fechaCreacion || '').localeCompare(a.fechaCreacion || ''))
 }
 
 export async function getInvitacionesActivasByPropietario(propietarioId) {
