@@ -1426,7 +1426,7 @@ watch(activeTab, async (newVal) => {
             allowIntersection: true, 
             showArea: true, 
             metric: true,
-            shapeOptions: { color: '#8b5cf6', weight: 3, fillOpacity: 0.2, dashArray: '5, 5' } 
+            shapeOptions: { color: '#8b5cf6', weight: 4, fillOpacity: 0.2 } 
           },
           polyline: false, 
           circlemarker: false, 
@@ -2100,3 +2100,31 @@ const confirmNaming = async () => {
   }
 }
 </script>
+
+<style>
+/* Estilos para que los vértices de edición sean puntos pequeños y circulares */
+.leaflet-editing-icon {
+  border-radius: 50% !important;
+  width: 10px !important;
+  height: 10px !important;
+  margin-left: -5px !important;
+  margin-top: -5px !important;
+  background-color: #8b5cf6 !important;
+  border: 2px solid white !important;
+  box-shadow: 0 0 5px rgba(0,0,0,0.5) !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+</style>
