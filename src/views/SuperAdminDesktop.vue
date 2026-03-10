@@ -58,7 +58,7 @@
       <div class="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar">
         <div class="max-w-7xl mx-auto pb-12">
     <!-- Tab: SOC (Security Operations Center) -->
-    <div v-if="activeTab === 'soc'" class="h-[calc(100vh-180px)] flex gap-4 overflow-hidden">
+    <div v-show="activeTab === 'soc'" class="h-[calc(100vh-180px)] flex gap-4 overflow-hidden">
       <!-- Mapa Principal (Grande) -->
       <div class="flex-1 bg-gray-900 border border-gray-800 rounded-3xl relative overflow-hidden shadow-2xl group">
         <!-- Overlay Stats (Mini) -->
@@ -1357,8 +1357,12 @@ onMounted(async () => {
 
   unsubscribeGuardias = subscribeToGuardias((guardias) => {
     if (!mapInstance.value) return
-    // Filtrar para que solo aparezcan los que tienen rol vigilante (evitar managers)
-    const soloVigilantes = guardias.filter(g => (g.role || '').toLowerCase() === 'vigilante')
+    // Filtrar para que solo aparezcan usuarios con rol de seguridad (evitar managers)
+    // Usamos un filtro más laxo por si el campo role no está normalizado
+    const soloVigilantes = guardias.filter(g => {
+      const r = (g.role || '').toLowerCase()
+      return r === 'vigilante' || r === 'seguridad' || r === 'guardia' || !g.role
+    })
     
     // Limpiar marcadores obsoletos (o de gente que ya no es vigilante)
     Object.keys(guardMarkers.value).forEach(id => {
@@ -1419,7 +1423,7 @@ watch(activeTab, async (newVal) => {
   if (newVal === 'soc') {
     await nextTick()
     if (!mapInstance.value && mapRef.value) {
-      // Import dinámico para asegurar que `window.L` esté fijado
+      // Inicializar Leaflet solo la primera vez que se visita SOC
       await import('leaflet-draw')
       await import('leaflet-draw/dist/leaflet.draw.css')
       
@@ -1429,11 +1433,6 @@ watch(activeTab, async (newVal) => {
         attribution: '&copy; OpenStreetMap contributors',
         maxZoom: 19
       }).addTo(mapInstance.value)
-      
-      // FORZAR ACTUALIZACIÓN DE MANTO CSS (Bug de Renderizado negro en Vue Tabs)
-      setTimeout(() => {
-        if (mapInstance.value) mapInstance.value.invalidateSize()
-      }, 300)
       
       drawnItems.value = new L.FeatureGroup()
       mapInstance.value.addLayer(drawnItems.value)
@@ -1545,13 +1544,22 @@ watch(activeTab, async (newVal) => {
            layer = L.polygon(gc.geometria, { color: '#8b5cf6', weight: 4, fillOpacity: 0.2 })
          }
          layer.gcId = gc.id
-         // Añadir Tooltip permanente con el nombre
-         layer.bindTooltip(gc.nombre, { permanent: true, direction: 'top', className: 'bg-gray-900 border-none text-white text-[10px] font-bold px-1 rounded shadow' })
+         // Añadir Tooltip (visible en hover)
+         layer.bindTooltip(gc.nombre, { permanent: false, direction: 'top', className: 'bg-gray-900 border-none text-white text-[10px] font-bold px-1 rounded shadow' })
          drawnItems.value.addLayer(layer)
       })
     }
+    
+    // Siempre que se muestre el mapa (nuevo o existente), forzar a recalcular proporciones.
+    // Especialmente importante porque las dimensiones del mapa eran 0x0 estando oculto por v-show.
+    setTimeout(() => {
+      if (mapInstance.value) {
+        mapInstance.value.invalidateSize(true)
+      }
+    }, 200)
   }
-}, { immediate: true })
+}, { immediate: true })      
+
 
 const tiposAgrupador = ['Edificio', 'Bloque', 'Villa', 'Manzana']
 
