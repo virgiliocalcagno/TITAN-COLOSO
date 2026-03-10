@@ -1357,12 +1357,29 @@ onMounted(async () => {
 
   unsubscribeGuardias = subscribeToGuardias((guardias) => {
     if (!mapInstance.value) return
-    guardias.forEach(g => {
+    // Filtrar para que solo aparezcan los que tienen rol vigilante (evitar managers)
+    const soloVigilantes = guardias.filter(g => (g.role || '').toLowerCase() === 'vigilante')
+    
+    // Limpiar marcadores obsoletos (o de gente que ya no es vigilante)
+    Object.keys(guardMarkers.value).forEach(id => {
+      if (!soloVigilantes.find(v => v.id === id)) {
+        mapInstance.value.removeLayer(guardMarkers.value[id])
+        delete guardMarkers.value[id]
+      }
+    })
+
+    soloVigilantes.forEach(g => {
        if (guardMarkers.value[g.id]) {
            guardMarkers.value[g.id].setLatLng([g.lat, g.lng])
        } else {
-           const icon = L.divIcon({ html: '<div class="w-8 h-8 rounded-full bg-emerald-500 border-2 border-white shadow-lg flex items-center justify-center text-white text-xs font-bold ring-4 ring-emerald-500/30">G</div>', className: '' })
-           const m = L.marker([g.lat, g.lng], { title: g.nombre, icon }).bindPopup(`<b>${g.nombre}</b><br>Vigilante Activo`).addTo(mapInstance.value)
+           // Icono de Policía 👮 para Vigilantes
+           const icon = L.divIcon({ 
+             html: `<div class="w-10 h-10 rounded-full bg-blue-600 border-2 border-white shadow-2xl flex items-center justify-center text-xl ring-4 ring-blue-500/30 animate-bounce-slow">👮</div>`, 
+             className: '',
+             iconSize: [40, 40],
+             iconAnchor: [20, 40]
+           })
+           const m = L.marker([g.lat, g.lng], { title: g.nombre, icon }).bindPopup(`<b>${g.nombre}</b><br>Seguridad Activa`).addTo(mapInstance.value)
            guardMarkers.value[g.id] = m
        }
     })
@@ -2126,5 +2143,13 @@ const confirmNaming = async () => {
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+.animate-bounce-slow {
+  animation: bounce-slow 3s infinite;
+}
+@keyframes bounce-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
 }
 </style>
