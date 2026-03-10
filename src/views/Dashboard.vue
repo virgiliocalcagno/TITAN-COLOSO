@@ -3,22 +3,31 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useAuth } from '../composables/useAuth.js'
 import { useFirestore } from '../composables/useFirestore.js'
 import { usePropertySelector } from '../composables/usePropertySelector.js'
-import { Building2, Users, QrCode, ShieldCheck, TrendingUp, ArrowUpRight, Clock, CheckCircle2, XCircle, AlertCircle, Truck, FileText, User, Calendar, X, Edit3 } from 'lucide-vue-next'
+import { 
+  Building2, Users, QrCode, ShieldCheck, TrendingUp, 
+  ArrowUpRight, Clock, CheckCircle2, XCircle, AlertCircle, 
+  Truck, FileText, User, Calendar, X, Edit3 
+} from 'lucide-vue-next'
 import QRCode from 'qrcode'
 
+// 1. Inyectar estados globales
 const { userId, userName } = useAuth()
-const { getCondominios, getInvitacionesByPropietario, anularInvitacion, getAsignacionesByUsuario, getActividadByUnidades } = useFirestore()
-const { propiedades, cargarPropiedades } = usePropertySelector()
+const { 
+  getCondominios, getInvitacionesByPropietario, 
+  anularInvitacion, getActividadByUnidades 
+} = useFirestore()
+const { propiedades } = usePropertySelector()
 
+// 2. Estado local del componente
 const allCondos = ref([])
 const invitaciones = ref([])
 const actividad = ref([])
 const selectedCondominio = ref('todos')
 const isLoading = ref(true)
 
-// Sincronización PROFUNDA: Las unidades SIEMPRE vienen del estado global
+// 3. Mapeo reactivo de Unidades (Viene del estado global filtrado por usuario)
 const unidades = computed(() => {
-  return propiedades.value.map(asig => ({
+  return (propiedades.value || []).map(asig => ({
     id: asig.unidad_id,
     condominioId: asig.condominio_id,
     condominioNombre: asig.condominio_nombre || 'Condominio Desconocido',
@@ -32,126 +41,114 @@ const unidades = computed(() => {
   }))
 })
 
-// Condominios filtrados dinámicamente según las unidades asignadas
+// 4. Condominios reactivos (Solo los que pertenecen a las unidades del usuario)
 const condominios = computed(() => {
+  if (!allCondos.value.length || !unidades.value.length) return []
   const assignedCondoIds = new Set(unidades.value.map(u => u.condominioId))
   return allCondos.value.filter(condo => assignedCondoIds.has(condo.id))
 })
 
+// 5. Estadísticas calculadas
+const stats = computed(() => ({
+  condominios: condominios.value.length,
+  unidades: unidades.value.length,
+  invitacionesActivas: (invitaciones.value || []).filter(i => i.estatus === 'Pendiente').length,
+  accesosHoy: (actividad.value || []).filter(a => a.tipo === 'entrada' || a.tipo === 'delivery').length
+}))
+
+// 6. Carga de datos complementarios (pases, actividad, nombres de condominios)
 async function cargarDatos() {
   if (!userId.value) return
-  console.log('📊 DASHBOARD: Cargando pases y condominios...')
   isLoading.value = true
+  console.log('📊 Dashboard: Cargando datos para', userId.value)
+  
   try {
-    const [c, i] = await Promise.all([
-      getCondominios().catch(e => { console.error('❌ Error Condominios:', e); return [] }),
-      getInvitacionesByPropietario(userId.value).catch(e => { console.error('❌ Error Invitaciones:', e); return [] })
+    const [c, inv] = await Promise.all([
+      getCondominios().catch(() => []),
+      getInvitacionesByPropietario(userId.value).catch(() => [])
     ])
-
-    allCondos.value = c || []
-    invitaciones.value = i || []
     
-    // Cargar actividad si hay unidades disponibles
+    allCondos.value = c || []
+    invitaciones.value = inv || []
+    
     if (unidades.value.length > 0) {
       await cargarActividad()
     }
-  } catch (globalError) {
-    console.error('💥 Error crítico en Dashboard:', globalError)
+  } catch (err) {
+    console.error('Error en carga de Dashboard:', err)
   } finally {
     isLoading.value = false
   }
 }
 
 async function cargarActividad() {
-  const misUnidadIds = unidades.value.map(u => u.id).filter(Boolean)
-  const misUnidadNombres = unidades.value.map(u => u.codigo_unidad || u.numero).filter(Boolean)
-  
-  if (misUnidadIds.length > 0) {
-    try {
-      actividad.value = await getActividadByUnidades(misUnidadIds, misUnidadNombres, 10) || []
-    } catch (actError) {
-      console.warn('⚠️ Error al cargar actividad:', actError.message)
-      actividad.value = []
-    }
+  const ids = unidades.value.map(u => u.id).filter(Boolean)
+  const nombres = unidades.value.map(u => u.codigo_unidad || u.numero).filter(Boolean)
+  if (ids.length > 0) {
+    actividad.value = await getActividadByUnidades(ids, nombres, 10).catch(() => []) || []
   }
 }
 
-// Watchers para reaccionar a cambios de datos globales
-watch(unidades, (newVal) => {
-  if (newVal.length > 0 && !actividad.value.length) {
-    cargarActividad()
-  }
-}, { immediate: true })
-
+// 7. Sincronización proactiva
 watch(() => userId.value, (newId) => {
   if (newId) cargarDatos()
 }, { immediate: true })
+
+watch(unidades, (newU) => {
+  if (newU.length > 0 && actividad.value.length === 0) {
+    cargarActividad()
+  }
+})
 
 onMounted(() => {
   if (userId.value) cargarDatos()
 })
 
+// 8. Utilidades de UI
 const selectedInv = ref(null)
 const selectedInvQR = ref('')
 
 async function abrirDetallesModal(inv) {
   selectedInv.value = inv;
   if(inv.idQR) {
-    selectedInvQR.value = await QRCode.toDataURL(inv.idQR, { width: 150, margin: 1, color: { dark: '#ffffff', light: '#00000000' } })
-  } else {
-    selectedInvQR.value = ''
+    selectedInvQR.value = await QRCode.toDataURL(inv.idQR, { 
+      width: 150, margin: 1, 
+      color: { dark: '#ffffff', light: '#00000000' } 
+    }).catch(() => '')
   }
 }
 
-function cerrarDetallesModal() {
-  selectedInv.value = null;
-  selectedInvQR.value = ''
-}
+const cerrarDetallesModal = () => { selectedInv.value = null; selectedInvQR.value = '' }
 
-function formatFechaResumen(f) {
+const formatFechaResumen = (f) => {
   if(!f) return ''
-  const d = new Date(f)
-  return d.toLocaleDateString('es-DO', {day:'2-digit', month:'short', year:'numeric'})
+  return new Date(f).toLocaleDateString('es-DO', {day:'2-digit', month:'short', year:'numeric'})
 }
 
 async function confirmarAnulacion(inv) {
-  if (confirm(`¿Estás seguro que deseas anular el pase de ${inv.nombreVisitante}? Esta acción "quemará" el código QR y no podrá ser utilizado.`)) {
-    try {
-      await anularInvitacion(inv.idQR || inv.id)
-      await cargarDatos() // refresh
-      if(selectedInv.value?.id === inv.id) {
-        cerrarDetallesModal()
-      }
-      alert('Pase anulado exitosamente')
-    } catch (e) {
-      alert('Error anulando el pase: ' + e.message)
-    }
+  if (confirm(`¿Anular el pase de ${inv.nombreVisitante}?`)) {
+    await anularInvitacion(inv.idQR || inv.id).catch(e => alert(e.message))
+    await cargarDatos()
+    cerrarDetallesModal()
   }
 }
-
-const stats = computed(() => ({
-  condominios: condominios.value.length,
-  unidades: unidades.value.length,
-  invitacionesActivas: invitaciones.value.filter(i => i.estatus === 'Pendiente').length,
-  accesosHoy: actividad.value.filter(a => a.tipo === 'entrada' || a.tipo === 'delivery').length
-}))
 
 const filteredInvitaciones = computed(() => {
   if (selectedCondominio.value === 'todos') return invitaciones.value
   return invitaciones.value.filter(i => i.condominioId === selectedCondominio.value)
 })
 
-function getStatusIcon(tipo) {
+const getStatusIcon = (tipo) => {
   const m = { entrada: CheckCircle2, qr: QrCode, denegado: XCircle, expirado: AlertCircle, delivery: Truck }
   return m[tipo] || Clock
 }
-function getStatusColor(tipo) {
+const getStatusColor = (tipo) => {
   const m = { entrada: 'text-emerald-400', qr: 'text-titan-400', denegado: 'text-red-400', expirado: 'text-amber-400', delivery: 'text-orange-400' }
   return m[tipo] || 'text-white/40'
 }
-function getBadgeClass(estatus) {
+const getBadgeClass = (est) => {
   const m = { Pendiente: 'badge-active', Expirado: 'badge-expired', Ingresado: 'badge-used' }
-  return m[estatus] || 'badge-pending'
+  return m[est] || 'badge-pending'
 }
 </script>
 
