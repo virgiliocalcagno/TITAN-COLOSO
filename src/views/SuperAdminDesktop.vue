@@ -1510,9 +1510,16 @@ watch(activeTab, async (newVal) => {
          if (gc.tipo === 'circle') {
            layer = L.circle([gc.geometria.lat, gc.geometria.lng], { radius: gc.geometria.radius, color: '#06b6d4', weight: 3, fillOpacity: 0.2 })
          } else if (gc.tipo === 'marker') {
-           layer = L.marker([gc.geometria.lat, gc.geometria.lng], { icon: new L.Icon.Default() })
+           // Icono de Caseta/Garita 🏠 para POIs
+           const hutIcon = L.divIcon({ 
+             html: `<div class="w-8 h-8 rounded-lg bg-amber-500 border-2 border-white shadow-lg flex items-center justify-center text-lg">🏠</div>`,
+             className: '',
+             iconSize: [32, 32],
+             iconAnchor: [16, 32]
+           })
+           layer = L.marker([gc.geometria.lat, gc.geometria.lng], { icon: hutIcon })
          } else {
-           layer = L.polygon(gc.geometria, { color: '#8b5cf6', weight: 3, fillOpacity: 0.2, dashArray: '5, 5' })
+           layer = L.polygon(gc.geometria, { color: '#8b5cf6', weight: 4, fillOpacity: 0.2 })
          }
          layer.gcId = gc.id
          // Añadir Tooltip permanente con el nombre
