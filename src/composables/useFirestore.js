@@ -94,7 +94,7 @@ export function useFirestore() {
     const addGeocerca = (data) => execute(firestoreService.addGeocerca, data)
     const updateGeocerca = (id, data) => execute(firestoreService.updateGeocerca, id, data)
     const deleteGeocerca = (id) => execute(firestoreService.deleteGeocerca, id)
-    const updateGuardLocation = (uid, name, lat, lng) => execute(firestoreService.updateGuardLocation, uid, name, lat, lng)
+    const updateGuardLocation = (uid, name, lat, lng, extraData) => execute(firestoreService.updateGuardLocation, uid, name, lat, lng, extraData)
     const subscribeToGuardias = (callback) => firestoreService.subscribeToGuardias(callback)
     const subscribeToGeocercas = (callback) => firestoreService.subscribeToGeocercas(callback)
 

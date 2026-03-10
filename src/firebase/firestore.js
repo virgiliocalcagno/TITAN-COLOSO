@@ -1532,10 +1532,14 @@ export function subscribeToGeocercas(callback) {
     })
 }
 
-export async function updateGuardLocation(userId, nombre, lat, lng) {
+export async function updateGuardLocation(userId, nombre, lat, lng, extraData = {}) {
     if (MOCK_MODE) return
     await setDoc(doc(db, 'ubicaciones_guardias', userId), {
-        nombre, lat, lng, lastUpdate: serverTimestamp()
+        nombre, lat, lng,
+        telefono: extraData.telefono || '',
+        puesto: extraData.puesto || '',
+        role: extraData.role || 'vigilante',
+        lastUpdate: serverTimestamp()
     })
 }
 

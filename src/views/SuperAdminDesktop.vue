@@ -1369,17 +1369,40 @@ onMounted(async () => {
     })
 
     soloVigilantes.forEach(g => {
+       const wlink = g.telefono ? `https://wa.me/${g.telefono.replace(/\D/g,'')}` : '#'
+       const popupContent = `
+         <div class="p-2 min-w-[150px]">
+           <div class="flex items-center gap-2 mb-2">
+             <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-lg">👮</div>
+             <div>
+               <p class="text-xs font-bold text-gray-800 leading-none">${g.nombre}</p>
+               <p class="text-[10px] text-blue-600 font-semibold mt-1">Vigilante Activo</p>
+             </div>
+           </div>
+           <div class="space-y-1 border-t border-gray-100 pt-2 text-[11px]">
+             <p class="text-gray-500"><span class="font-bold">Puesto:</span> ${g.puesto || 'No asignado'}</p>
+             <p class="text-gray-500"><span class="font-bold">Tel:</span> ${g.telefono || 'Sin registro'}</p>
+             ${g.telefono ? `
+               <a href="${wlink}" target="_blank" class="flex items-center justify-center gap-1.5 mt-2 py-1.5 px-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold transition-colors no-underline">
+                 <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                 WhatsApp
+               </a>
+             ` : ''}
+           </div>
+         </div>
+       `
+
        if (guardMarkers.value[g.id]) {
            guardMarkers.value[g.id].setLatLng([g.lat, g.lng])
+           guardMarkers.value[g.id].getPopup().setContent(popupContent)
        } else {
-           // Icono de Policía 👮 para Vigilantes
            const icon = L.divIcon({ 
              html: `<div class="w-10 h-10 rounded-full bg-blue-600 border-2 border-white shadow-2xl flex items-center justify-center text-xl ring-4 ring-blue-500/30 animate-bounce-slow">👮</div>`, 
              className: '',
              iconSize: [40, 40],
              iconAnchor: [20, 40]
            })
-           const m = L.marker([g.lat, g.lng], { title: g.nombre, icon }).bindPopup(`<b>${g.nombre}</b><br>Seguridad Activa`).addTo(mapInstance.value)
+           const m = L.marker([g.lat, g.lng], { title: g.nombre, icon }).bindPopup(popupContent).addTo(mapInstance.value)
            guardMarkers.value[g.id] = m
        }
     })

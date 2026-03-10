@@ -158,7 +158,17 @@ onMounted(async () => {
         ubicacionGuardia.value = { lat: pos.coords.latitude, lng: pos.coords.longitude }
         gpsPrecision.value = Math.round(pos.coords.accuracy)
         if (user.value) {
-            updateGuardLocation(user.value.uid || user.value.id || 'guard-01', user.value.nombre || user.value.email || 'Vigilante', pos.coords.latitude, pos.coords.longitude)
+            updateGuardLocation(
+                user.value.uid || user.value.id || 'guard-01', 
+                user.value.nombre || user.value.email || 'Vigilante', 
+                pos.coords.latitude, 
+                pos.coords.longitude,
+                { 
+                    telefono: user.value.telefono || '', 
+                    puesto: selectedPOI.value || '',
+                    role: user.value.role || 'vigilante'
+                }
+            )
         }
      }, err => {
         console.warn('Sin GPS', err)
