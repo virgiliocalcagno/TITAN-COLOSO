@@ -1397,9 +1397,13 @@ onMounted(async () => {
        `
 
        if (guardMarkers.value[g.id]) {
-           guardMarkers.value[g.id].setLatLng([g.lat, g.lng])
-           guardMarkers.value[g.id].getPopup().setContent(popupContent)
-       } else {
+           const marker = guardMarkers.value[g.id]
+           // Validar que el mapa e instancia sigan activos antes de mover el marcador
+           if (mapInstance.value && marker && marker._map) {
+               marker.setLatLng([g.lat, g.lng])
+               marker.getPopup()?.setContent(popupContent)
+           }
+       } else if (mapInstance.value) {
            const icon = L.divIcon({ 
              html: `<div class="w-10 h-10 rounded-full bg-blue-600 border-2 border-white shadow-2xl flex items-center justify-center text-xl ring-4 ring-blue-500/30 animate-bounce-slow">👮</div>`, 
              className: '',
@@ -1416,7 +1420,19 @@ onMounted(async () => {
 onUnmounted(() => {
   if (unsubscribeSoc) unsubscribeSoc()
   if (unsubscribeGuardias) unsubscribeGuardias()
-  if (mapInstance.value) { mapInstance.value.remove(); mapInstance.value = null }
+  
+  if (mapInstance.value) {
+    // Limpiar marcadores explícitamente antes de remover el mapa
+    Object.keys(guardMarkers.value).forEach(id => {
+      if (guardMarkers.value[id]) {
+        mapInstance.value.removeLayer(guardMarkers.value[id])
+      }
+    })
+    guardMarkers.value = {}
+    
+    mapInstance.value.remove()
+    mapInstance.value = null
+  }
 })
 
 watch(activeTab, async (newVal) => {
