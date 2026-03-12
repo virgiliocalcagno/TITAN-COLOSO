@@ -1357,22 +1357,40 @@ onMounted(async () => {
 
   unsubscribeGuardias = subscribeToGuardias((guardias) => {
     if (!mapInstance.value) return
-    // Filtrar para que solo aparezcan usuarios con rol de seguridad (evitar managers)
-    // Usamos un filtro más laxo por si el campo role no está normalizado
-    const soloVigilantes = guardias.filter(g => {
+    
+    // Filtro de Actividad: Máximo 5 minutos de inactividad
+    const ahora = Date.now()
+    const cincoMinutos = 5 * 60 * 1000
+
+    const soloVigilantesActivos = guardias.filter(g => {
+      // 1. Filtro de Rol Estricto (No permitimos rol vacío para evitar managers)
       const r = (g.role || '').toLowerCase()
-      return r === 'vigilante' || r === 'seguridad' || r === 'guardia' || !g.role
+      const esVigilante = r === 'vigilante' || r === 'seguridad' || r === 'guardia'
+      
+      // 2. Filtro de Tiempo
+      let ultimaActividad = 0
+      if (g.lastUpdate) {
+        // Manejar tanto Timestamps de Firebase como valores numéricos
+        ultimaActividad = g.lastUpdate.seconds ? g.lastUpdate.seconds * 1000 : g.lastUpdate
+      }
+      
+      const estaActivo = (ahora - ultimaActividad) < cincoMinutos
+      
+      // 3. Exclusión manual del manager por si acaso (fail-safe)
+      const noEsManager = !g.email?.includes('manager@titan.com') && !g.nombre?.toLowerCase().includes('manager')
+      
+      return esVigilante && estaActivo && noEsManager
     })
     
-    // Limpiar marcadores obsoletos (o de gente que ya no es vigilante)
+    // Limpiar marcadores obsoletos (o de gente que ya no está activa)
     Object.keys(guardMarkers.value).forEach(id => {
-      if (!soloVigilantes.find(v => v.id === id)) {
+      if (!soloVigilantesActivos.find(v => v.id === id)) {
         mapInstance.value.removeLayer(guardMarkers.value[id])
         delete guardMarkers.value[id]
       }
     })
 
-    soloVigilantes.forEach(g => {
+    soloVigilantesActivos.forEach(g => {
        const wlink = g.telefono ? `https://wa.me/${g.telefono.replace(/\D/g,'')}` : '#'
        const popupContent = `
          <div class="p-2 min-w-[150px]">
