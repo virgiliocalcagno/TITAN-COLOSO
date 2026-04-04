@@ -140,12 +140,7 @@ const unidadesFiltradas = computed(() => {
 const condominioSeleccionado = computed(() => condominios.value.find(c => c.id === selectedCondominio.value))
 const unidadSeleccionada = computed(() => unidades.value.find(u => u.id === selectedUnidad.value))
 const formularioValido = computed(() => {
-  if (!selectedCondominio.value || !selectedUnidad.value || !fechaExpiracion.value) return false
-  
-  // 🔥 DELIVERY EXPRESS: Skip identity requirements
-  if (tipoVisitante.value === 'Delivery') return true
-  
-  if (!nombreVisitante.value.trim() || !telefono.value.trim()) return false
+  if (!selectedCondominio.value || !selectedUnidad.value || !nombreVisitante.value.trim() || !telefono.value.trim() || !fechaExpiracion.value) return false
   if (esAirbnb.value && (!fechaInicio.value || !fechaSalida.value)) return false
   if (esLogistica.value && (!vehiculoPlaca.value || !vehiculoTipo.value)) return false
   return true
@@ -377,20 +372,14 @@ function resetFormulario() {
 
 <template>
   <div class="space-y-6 animate-fade-in-up">
-    <div class="flex items-center justify-between">
-      <div>
-        <h2 class="text-2xl font-bold flex items-center gap-2">
-          <Truck v-if="tipoVisitante === 'Delivery'" class="w-6 h-6 text-blue-400" />
-          <User v-else class="w-6 h-6 text-titan-400" />
-          {{ editandoId ? 'Modificar Acceso' : (tipoVisitante === 'Delivery' ? 'Delivery Express' : 'Generar Acceso') }}
-        </h2>
-        <p class="text-white/40 text-sm mt-1">
-          {{ tipoVisitante === 'Delivery' ? 'Crea un pase rápido sin registro de identidad' : (editandoId ? 'Al emitir el nuevo código, el pase anterior quedará anulado.' : 'Crea un código de acceso para tu visitante') }}
-        </p>
-      </div>
-      <div v-if="tipoVisitante === 'Delivery'" class="px-4 py-1.5 rounded-full bg-blue-500/20 border border-blue-500/40 text-[10px] font-black text-blue-400 tracking-widest uppercase">
-        Express
-      </div>
+    <div>
+      <h2 class="text-2xl font-bold flex items-center gap-2">
+        <QrCode class="w-6 h-6 text-titan-400" />
+        {{ editandoId ? 'Modificar Acceso QR' : 'Generar Acceso QR' }}
+      </h2>
+      <p class="text-white/40 text-sm mt-1">
+        {{ editandoId ? 'Al emitir el nuevo código, el pase anterior quedará anulado y bloqueado.' : 'Crea un código de acceso o pase para tu visitante' }}
+      </p>
     </div>
 
     <!-- Progress -->
@@ -438,16 +427,6 @@ function resetFormulario() {
       </div>
 
       <div class="glass-card p-4 space-y-3" v-if="selectedUnidad">
-        <label class="text-xs font-semibold text-white/60 uppercase tracking-wider">Tipo de Acceso</label>
-        <div class="grid grid-cols-3 gap-2">
-          <button v-for="tipo in tiposVisitante" :key="tipo.id" @click="tipoVisitante = tipo.id" class="py-3 px-2 rounded-xl text-xs font-medium transition-all flex flex-col items-center gap-1" :class="tipoVisitante === tipo.id ? 'bg-titan-500 text-white shadow-lg shadow-titan-500/30' : 'bg-white/5 text-white/60 hover:bg-white/10'">
-            <span class="text-lg">{{ tipo.icon }}</span>{{ tipo.label }}
-          </button>
-        </div>
-      </div>
-
-      <!-- Bloque de Identidad (Bypass si es Delivery) -->
-      <div class="glass-card p-4 space-y-3" v-if="selectedUnidad && tipoVisitante !== 'Delivery'">
         <label class="text-xs font-semibold text-white/60 uppercase tracking-wider flex items-center gap-2"><User class="w-4 h-4" />Datos del Visitante</label>
         <div class="grid grid-cols-2 gap-2">
             <input v-model="nombreVisitante" type="text" placeholder="Nombre completo" class="input-field" />
@@ -466,8 +445,9 @@ function resetFormulario() {
             <input v-model="nacionalidad" class="w-full bg-titan-500/10 border border-titan-500/30 rounded-lg px-3 py-2 text-titan-200 text-sm focus:border-titan-500 focus:outline-none" />
         </div>
 
-        <!-- Camera / Photo Menu (Gemini OCR) -->
+        <!-- Camera / Photo Menu -->
         <div class="space-y-2 mt-4 pt-4 border-t border-white/5">
+          <!-- Captured Photo Badges -->
           <div v-if="fotoDocumento" class="relative animate-scale-up mb-2">
             <img :src="fotoDocumento" class="w-full h-16 object-cover rounded-xl border border-emerald-500/30 grayscale contrast-125 brightness-50" />
             <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent rounded-xl flex items-center justify-center pointer-events-none">
@@ -476,9 +456,10 @@ function resetFormulario() {
             <button @click="removeFoto" title="Descartar documento" class="absolute top-1 right-1 p-1 rounded-full bg-red-500/90 hover:bg-red-400 transition-colors pointer-events-auto"><X class="w-3.5 h-3.5 text-white" /></button>
           </div>
 
+          <!-- Main Button Options -->
           <div v-if="!isOcrProcessing" class="space-y-2">
             <p v-if="fotoDocumento" class="text-[10px] uppercase tracking-widest text-titan-300 font-bold text-center mt-3">Extraer más información (opcional)</p>
-            <p v-if="fotoDocumento" class="text-xs text-white/40 text-center mb-1 leading-tight">Añade otra captura para autocompletar otros campos vacíos sin borrar lo anterior.</p>
+            <p v-if="fotoDocumento" class="text-xs text-white/40 text-center mb-1 leading-tight">Añade otra captura (ej. Airbnb o contacto) para autocompletar otros campos vacíos sin borrar lo anterior.</p>
             <div class="grid grid-cols-2 gap-2">
               <button @click="openCamera" class="flex-1 py-3 px-2 rounded-xl transition-all flex flex-col items-center justify-center gap-1 text-xs hover:border-white/30" :class="fotoDocumento ? 'border border-dashed border-white/20 bg-transparent text-white/50' : 'bg-white/5 text-white/60 hover:bg-white/10'">
                 <Camera class="w-5 h-5" :class="fotoDocumento ? 'text-white/40' : 'text-titan-400'" /> Cámara
@@ -490,24 +471,22 @@ function resetFormulario() {
             </div>
           </div>
 
+          <!-- Loading State -->
           <div v-else class="flex flex-col items-center justify-center gap-2 py-6 bg-white/5 rounded-xl border border-titan-500/30">
             <div class="w-8 h-8 border-2 border-titan-500 border-t-transparent rounded-full animate-spin"></div>
             <p class="text-xs font-medium text-titan-300">Escaneando con Gemini OCR...</p>
           </div>
+          
           <p v-if="ocrError" class="text-xs text-red-400 text-center">{{ ocrError }}</p>
         </div>
       </div>
 
-      <!-- Info Alerta Delivery -->
-      <div v-if="tipoVisitante === 'Delivery' && selectedUnidad" class="glass-card p-4 border border-blue-500/20 bg-blue-500/5 animate-pulse">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
-            <Truck class="w-5 h-5 text-blue-400" />
-          </div>
-          <div>
-            <p class="text-xs font-bold text-blue-400 uppercase tracking-widest">Delivery Express Activado</p>
-            <p class="text-[10px] text-white/40">Se omitirá el escaneo de ID. El visitante ingresará con un PIN visual.</p>
-          </div>
+      <div class="glass-card p-4 space-y-3" v-if="selectedUnidad">
+        <label class="text-xs font-semibold text-white/60 uppercase tracking-wider">Tipo de Acceso</label>
+        <div class="grid grid-cols-3 gap-2">
+          <button v-for="tipo in tiposVisitante" :key="tipo.id" @click="tipoVisitante = tipo.id" class="py-3 px-2 rounded-xl text-xs font-medium transition-all flex flex-col items-center gap-1" :class="tipoVisitante === tipo.id ? 'bg-titan-500 text-white shadow-lg shadow-titan-500/30' : 'bg-white/5 text-white/60 hover:bg-white/10'">
+            <span class="text-lg">{{ tipo.icon }}</span>{{ tipo.label }}
+          </button>
         </div>
       </div>
 
@@ -593,45 +572,37 @@ function resetFormulario() {
             <p class="text-white font-medium">{{ condominioSeleccionado?.nombre }} · {{ unidadSeleccionada?.codigo_unidad || unidadSeleccionada?.numero }}</p>
           </div>
           <div class="h-px bg-white/5"></div>
-          <div v-if="tipoVisitante === 'Delivery'" class="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 text-center">
-            <Truck class="w-10 h-10 text-blue-400 mx-auto mb-2" />
-            <p class="text-sm font-bold text-white uppercase">Delivery Express</p>
-            <p class="text-[10px] text-white/40">Sin requerimiento de identificación</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-[10px] text-white/40 uppercase tracking-wider">Visitante</label>
+              <input v-model="nombreVisitante" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-titan-500 focus:outline-none mt-1" />
+            </div>
+            <div>
+              <label class="text-[10px] text-white/40 uppercase tracking-wider">Teléfono</label>
+              <input v-model="telefono" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-titan-500 focus:outline-none mt-1" />
+            </div>
           </div>
-          
-          <div v-else class="space-y-3">
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="text-[10px] text-white/40 uppercase tracking-wider">Visitante</label>
-                <input v-model="nombreVisitante" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-titan-500 focus:outline-none mt-1" />
-              </div>
-              <div>
-                <label class="text-[10px] text-white/40 uppercase tracking-wider">Teléfono</label>
-                <input v-model="telefono" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-titan-500 focus:outline-none mt-1" />
-              </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-[10px] text-white/40 uppercase tracking-wider">Tipo Doc.</label>
+              <select v-model="tipoDocumento" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-titan-500 focus:outline-none mt-1">
+                <option value="cedula">Cédula</option>
+                <option value="pasaporte">Pasaporte</option>
+              </select>
             </div>
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="text-[10px] text-white/40 uppercase tracking-wider">Tipo Doc.</label>
-                <select v-model="tipoDocumento" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-titan-500 focus:outline-none mt-1">
-                  <option value="cedula">Cédula</option>
-                  <option value="pasaporte">Pasaporte</option>
-                </select>
-              </div>
-              <div>
-                <label class="text-[10px] text-white/40 uppercase tracking-wider">Documento</label>
-                <input v-model="documentoId" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-titan-500 focus:outline-none mt-1" />
-              </div>
+            <div>
+              <label class="text-[10px] text-white/40 uppercase tracking-wider">Documento</label>
+              <input v-model="documentoId" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-titan-500 focus:outline-none mt-1" />
             </div>
-            <div class="grid grid-cols-2 gap-3" v-if="nacionalidad || paisOrigen">
-              <div v-if="nacionalidad" class="animate-fade-in-up">
-                <label class="text-[10px] text-titan-400 uppercase tracking-wider">Nacionalidad</label>
-                <input v-model="nacionalidad" class="w-full bg-titan-500/10 border border-titan-500/30 rounded-lg px-3 py-2 text-titan-200 text-sm focus:border-titan-500 focus:outline-none mt-1" />
-              </div>
-              <div v-if="paisOrigen" class="animate-fade-in-up">
-                <label class="text-[10px] text-titan-400 uppercase tracking-wider">País Emisor (Doc)</label>
-                <input v-model="paisOrigen" class="w-full bg-titan-500/10 border border-titan-500/30 rounded-lg px-3 py-2 text-titan-200 text-sm focus:border-titan-500 focus:outline-none mt-1" />
-              </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div v-if="nacionalidad" class="animate-fade-in-up">
+              <label class="text-[10px] text-titan-400 uppercase tracking-wider">Nacionalidad</label>
+              <input v-model="nacionalidad" class="w-full bg-titan-500/10 border border-titan-500/30 rounded-lg px-3 py-2 text-titan-200 text-sm focus:border-titan-500 focus:outline-none mt-1" />
+            </div>
+            <div v-if="paisOrigen" class="animate-fade-in-up">
+              <label class="text-[10px] text-titan-400 uppercase tracking-wider">País Emisor (Doc)</label>
+              <input v-model="paisOrigen" class="w-full bg-titan-500/10 border border-titan-500/30 rounded-lg px-3 py-2 text-titan-200 text-sm focus:border-titan-500 focus:outline-none mt-1" />
             </div>
           </div>
           <div v-if="esLogistica" class="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 space-y-2">
@@ -727,20 +698,17 @@ function resetFormulario() {
           </div>
 
           <div class="flex items-center gap-4 mb-5">
-            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-titan-500/30 to-purple-500/30 flex items-center justify-center text-2xl" :class="tipoVisitante === 'Delivery' ? 'from-blue-500/30' : ''">
+            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-titan-500/30 to-purple-500/30 flex items-center justify-center text-2xl">
               {{ tiposVisitante.find(t => t.id === tipoVisitante)?.icon || '👤' }}
             </div>
             <div class="flex-1">
-              <p class="text-lg font-bold text-white">{{ tipoVisitante === 'Delivery' ? 'DELIVERY EXPRESS' : (nombreVisitante || 'Visitante Autorizado') }}</p>
-              <div v-if="tipoVisitante !== 'Delivery'" class="flex flex-col gap-0.5 mt-0.5">
+              <p class="text-lg font-bold text-white">{{ nombreVisitante }}</p>
+              <div class="flex flex-col gap-0.5 mt-0.5">
                 <p class="text-xs text-white/40">{{ tipoDocumento === 'cedula' ? 'Cédula' : 'Pasaporte' }}: <span class="text-white">{{ documentoId || 'N/A' }}</span></p>
                 <p v-if="telefono" class="text-[10px] text-white/60 font-mono tracking-wide mt-0.5">📞 {{ telefono }}</p>
                 <p v-if="nacionalidad || paisOrigen" class="text-[10px] text-titan-300 font-medium uppercase tracking-widest mt-0.5">
                   <span class="text-white/40">Origen:</span> {{ nacionalidad || paisOrigen }}
                 </p>
-              </div>
-              <div v-else class="flex flex-col gap-0.5 mt-0.5">
-                 <p class="text-xs text-blue-400 font-bold tracking-widest uppercase">Acceso Rápido Sin ID</p>
               </div>
             </div>
           </div>
@@ -782,25 +750,11 @@ function resetFormulario() {
              </div>
           </div>
 
-          <div class="flex flex-col items-center justify-center flex-1 py-4">
-            <!-- QR Normal -->
-            <div v-if="tipoVisitante !== 'Delivery'" class="flex flex-col items-center">
-              <div class="w-48 h-48 bg-white rounded-2xl p-2 shadow-xl shadow-black/30">
-                <img v-if="qrImageSrc" :src="qrImageSrc" alt="QR Code" class="w-full h-full" />
-              </div>
-              <p class="text-xs text-white/30 mt-3 font-mono tracking-wider">{{ qrCodigo }}</p>
+          <div class="flex flex-col items-center">
+            <div class="w-48 h-48 bg-white rounded-2xl p-2 shadow-xl shadow-black/30">
+              <img v-if="qrImageSrc" :src="qrImageSrc" alt="QR Code" class="w-full h-full" />
             </div>
-            
-            <!-- 🔥 DELIVERY EXPRESS PIN -->
-            <div v-else class="w-full flex flex-col items-center justify-center">
-              <p class="text-[10px] text-blue-400 font-black uppercase tracking-[0.3em] mb-4">PIN DE ACCESO</p>
-              <div class="bg-gradient-to-br from-blue-500/20 to-titan-500/20 border-2 border-blue-500/30 w-full py-8 rounded-[2.5rem] flex flex-col items-center shadow-2xl shadow-blue-500/20">
-                <span class="text-8xl font-black text-blue-500 tracking-tighter drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">
-                  {{ paseSecuencial }}
-                </span>
-              </div>
-              <p class="text-[9px] text-white/40 mt-6 uppercase tracking-widest text-center px-10">Muestra este número al vigilante para ingreso rápido</p>
-            </div>
+            <p class="text-xs text-white/30 mt-3 font-mono tracking-wider">{{ qrCodigo }}</p>
           </div>
         </div>
 
