@@ -32,6 +32,7 @@ export function useFirestore() {
     // Agrupadores
     const getAgrupadores = (cid) => execute(firestoreService.getAgrupadores, cid)
     const addAgrupador = (data) => execute(firestoreService.addAgrupador, data)
+    const deleteAgrupador = (id, force) => execute(firestoreService.deleteAgrupador, id, force)
 
     // Unidades
     const getUnidades = () => execute(firestoreService.getUnidades)
@@ -52,6 +53,7 @@ export function useFirestore() {
     const getInvitacionByQR = (code) => execute(firestoreService.getInvitacionByQR, code)
     const updateInvitacionEstatus = (id, status) => execute(firestoreService.updateInvitacionEstatus, id, status)
     const anularInvitacion = (id) => execute(firestoreService.anularInvitacion, id)
+    const updateInvitacion = (id, data) => execute(firestoreService.updateInvitacion, id, data)
 
     // Actividad / Pases
     const getSiguientePase = () => execute(firestoreService.getSiguientePase)
@@ -60,7 +62,7 @@ export function useFirestore() {
     const getActividadByCondominio = (id) => execute(firestoreService.getActividadByCondominio, id)
     const registrarActividad = (data) => execute(firestoreService.registrarActividad, data)
 
-    // Usuarios (Módulo 2)
+    // Usuarios
     const getUsuarios = () => execute(firestoreService.getUsuarios)
     const getUsuario = (id) => execute(firestoreService.getUsuario, id)
     const addUsuario = (data) => execute(firestoreService.addUsuario, data)
@@ -70,7 +72,7 @@ export function useFirestore() {
     const buscarUsuarios = (termino) => execute(firestoreService.buscarUsuarios, termino)
     const validarDocumento = (tipo, documento) => firestoreService.validarDocumento(tipo, documento)
 
-    // Asignaciones (Módulo 2)
+    // Asignaciones
     const getAsignaciones = () => execute(firestoreService.getAsignaciones)
     const getAsignacionesByUsuario = (uid) => execute(firestoreService.getAsignacionesByUsuario, uid)
     const getAsignacionesByUnidad = (uid) => execute(firestoreService.getAsignacionesByUnidad, uid)
@@ -78,18 +80,14 @@ export function useFirestore() {
     const removeAsignacion = (id) => execute(firestoreService.removeAsignacion, id)
     const editarAsignacion = (id, data) => execute(firestoreService.editarAsignacion, id, data)
 
-    // Agrupadores (Complemento)
-    const deleteAgrupador = (id, force) => execute(firestoreService.deleteAgrupador, id, force)
-
-    // Invitaciones extendidas (Módulo 3)
-    const updateInvitacion = (id, data) => execute(firestoreService.updateInvitacion, id, data)
-
-    // Delivery Pulso (Módulo 3)
+    // Delivery Pulso
     const getSolicitudesDelivery = () => execute(firestoreService.getSolicitudesDelivery)
     const getSolicitudesPendientesByUnidad = (uid) => execute(firestoreService.getSolicitudesPendientesByUnidad, uid)
     const crearSolicitudDelivery = (data) => execute(firestoreService.crearSolicitudDelivery, data)
     const responderSolicitudDelivery = (id, resp, uid) => execute(firestoreService.responderSolicitudDelivery, id, resp, uid)
     const getSolicitudDelivery = (id) => execute(firestoreService.getSolicitudDelivery, id)
+
+    // Geocercas & SOC
     const getGeocercas = () => execute(firestoreService.getGeocercas)
     const addGeocerca = (data) => execute(firestoreService.addGeocerca, data)
     const updateGeocerca = (id, data) => execute(firestoreService.updateGeocerca, id, data)
@@ -97,6 +95,11 @@ export function useFirestore() {
     const updateGuardLocation = (uid, name, lat, lng, extraData) => execute(firestoreService.updateGuardLocation, uid, name, lat, lng, extraData)
     const subscribeToGuardias = (callback) => firestoreService.subscribeToGuardias(callback)
     const subscribeToGeocercas = (callback) => firestoreService.subscribeToGeocercas(callback)
+
+    // Configuración y Documentación (Faltantes)
+    const getGlobalConfig = () => execute(firestoreService.getGlobalConfig)
+    const updateGlobalConfig = (data) => execute(firestoreService.updateGlobalConfig, data)
+    const updateInvitacionDocumento = (id, data) => execute(firestoreService.updateInvitacionDocumento, id, data)
 
     return {
         loading,
@@ -117,7 +120,6 @@ export function useFirestore() {
         getUnidadesByCondominio,
         updateUnidad,
         deleteUnidad,
-        // Wizard
         generarNomenclaturaPreview,
         generarUnidadesBatch,
         // Invitaciones
@@ -128,6 +130,7 @@ export function useFirestore() {
         getInvitacionByQR,
         updateInvitacionEstatus,
         anularInvitacion,
+        updateInvitacion,
         // Actividad / Pases
         getSiguientePase,
         getActividadReciente,
@@ -150,8 +153,6 @@ export function useFirestore() {
         addAsignacion,
         removeAsignacion,
         editarAsignacion,
-        // Invitaciones extendidas
-        updateInvitacion,
         // Delivery Pulso
         getSolicitudesDelivery,
         getSolicitudesPendientesByUnidad,
@@ -165,6 +166,10 @@ export function useFirestore() {
         deleteGeocerca,
         updateGuardLocation,
         subscribeToGuardias,
-        subscribeToGeocercas
+        subscribeToGeocercas,
+        // Configuración y Documentación
+        getGlobalConfig,
+        updateGlobalConfig,
+        updateInvitacionDocumento
     }
 }

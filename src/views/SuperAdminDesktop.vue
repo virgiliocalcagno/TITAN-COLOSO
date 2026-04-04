@@ -956,6 +956,62 @@
       </div>
     </div>
 
+    <!-- Tab: Configuración (Ajustes Globales) -->
+    <div v-if="activeTab === 'configuracion'" class="max-w-3xl mx-auto space-y-6">
+      <div class="bg-gray-800/40 border border-gray-700/50 rounded-[32px] p-8 shadow-2xl">
+        <div class="flex items-center gap-4 mb-8">
+          <div class="w-14 h-14 rounded-2xl bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
+            <Settings :size="28" class="text-purple-400" />
+          </div>
+          <div>
+            <h3 class="text-xl font-bold text-white tracking-tight">Ajustes del Sistema</h3>
+            <p class="text-sm text-gray-400">Control de funciones globales y seguridad</p>
+          </div>
+        </div>
+
+        <div class="space-y-6">
+          <!-- Opción 1: Registro de ID en Escáner -->
+          <div class="flex items-center justify-between p-6 rounded-3xl bg-gray-900/50 border border-gray-800 hover:border-purple-500/30 transition-all group">
+            <div class="flex-1 pr-6">
+              <h4 class="text-white font-bold mb-1 group-hover:text-purple-400 transition-colors">Registro de ID en Garita</h4>
+              <p class="text-xs text-gray-400 leading-relaxed">
+                Permite que el vigilante registre o escanee (OCR) el documento de identidad si el visitante no lo tiene registrado previamente.
+              </p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" v-model="globalConfig.permitirRegistroIdScanner" class="sr-only peer">
+              <div class="w-14 h-7 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-purple-600"></div>
+            </label>
+          </div>
+
+          <!-- Información de Versión -->
+          <div class="p-6 rounded-3xl bg-gray-900/30 border border-gray-800/50">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1">Versión del Motor</p>
+                <p class="text-white font-mono font-bold">{{ globalConfig.version || '2.6.5' }}</p>
+              </div>
+              <div class="text-right">
+                <p class="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1">Estado</p>
+                <div class="flex items-center justify-end gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span class="text-[10px] text-emerald-400 font-bold uppercase">Sincronizado</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-10 pt-6 border-t border-gray-800 flex justify-end">
+          <button @click="saveConfig" :disabled="guardandoConfig"
+            class="bg-white text-black px-8 py-3 rounded-2xl font-black uppercase tracking-widest hover:bg-purple-500 hover:text-white transition-all disabled:opacity-50 flex items-center gap-2 shadow-xl">
+            <Loader2 v-if="guardandoConfig" :size="18" class="animate-spin" />
+            {{ guardandoConfig ? 'Guardando...' : 'Aplicar Cambios' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Modales de Confirmación de Eliminación Forzada en Cascada -->
 
     <!-- Modal Usuario -->
@@ -1195,7 +1251,7 @@ L.Icon.Default.mergeOptions({
 import { 
   Building2, Plus, Trash2, Search, Check, X, Pencil, Loader2, CheckCircle, 
   LayoutGrid, Wand2, List, Users, UserPlus, Link, AlertTriangle, History, LogIn, FileText, Mail, ChevronDown, User, LogOut,
-  Shield, MapPin, Activity, Pentagon
+  Shield, MapPin, Activity, Pentagon, Settings
 } from 'lucide-vue-next'
 import {
   getCondominios, getUnidades, getAgrupadores, getAdminStats,
@@ -1206,7 +1262,8 @@ import {
   getAsignaciones, addAsignacion, removeAsignacion, editarAsignacion,
   getActividadByCondominio, subscribeToActividadGlobal,
   getGeocercas, addGeocerca, deleteGeocerca, subscribeToGuardias,
-  addAgrupador, deleteAgrupador, updateCondominio, updateGeocerca
+  addAgrupador, deleteAgrupador, updateCondominio, updateGeocerca,
+  getGlobalConfig, updateGlobalConfig
 } from '../firebase/firestore.js'
 
 const router = useRouter()
@@ -1240,6 +1297,7 @@ const tabs = [
   { id: 'unidades', label: 'Unidades', short: 'Uds', icon: List },
   { id: 'usuarios', label: 'Usuarios', short: 'Usr', icon: Users },
   { id: 'asignaciones', label: 'Asignaciones', short: 'Asig', icon: Link },
+  { id: 'configuracion', label: 'Configuracion', short: 'Conf', icon: Settings },
 ]
 
 // ---- SOC (Monitor de Seguridad) ----
@@ -1311,6 +1369,27 @@ async function confirmarBorradoGeocerca(id) {
   }
 }
 
+// ---- Configuración Global (Configurabilidad) ----
+const globalConfig = ref({ permitirRegistroIdScanner: true })
+const guardandoConfig = ref(false)
+
+async function loadConfig() {
+  const conf = await getGlobalConfig()
+  if (conf) globalConfig.value = { ...globalConfig.value, ...conf }
+}
+
+async function saveConfig() {
+  guardandoConfig.value = true
+  try {
+    await updateGlobalConfig(globalConfig.value)
+    alert('✅ Configuración guardada correctamente')
+  } catch (e) {
+    alert('❌ Error al guardar: ' + e.message)
+  } finally {
+    guardandoConfig.value = false
+  }
+}
+
 // Sonidos de Alerta
 const playAlert = (type = 'success') => {
   try {
@@ -1341,6 +1420,7 @@ const playAlert = (type = 'success') => {
 }
 
 onMounted(async () => {
+  loadConfig()
   await refreshData()
   
   unsubscribeSoc = subscribeToActividadGlobal(50, (logs) => {

@@ -1568,3 +1568,51 @@ export function getAdminStats() {
         totalSolicitudesDelivery: seedSolicitudesDelivery.length,
     }
 }
+// ============================================
+// CONFIGURACIÓN GLOBAL (Ajustes de Sistema)
+// ============================================
+
+export async function getGlobalConfig() {
+    if (MOCK_MODE) {
+        return {
+            permitirRegistroIdScanner: true,
+            version: '2.6.5'
+        }
+    }
+    const docRef = doc(db, 'configuracion', 'global')
+    const snap = await getDoc(docRef)
+    if (snap.exists()) return snap.data()
+    
+    // Si no existe, inicializar con valores por defecto
+    const defaultConfig = { 
+        permitirRegistroIdScanner: true, 
+        updatedAt: serverTimestamp() 
+    }
+    await setDoc(docRef, defaultConfig)
+    return defaultConfig
+}
+
+export async function updateGlobalConfig(data) {
+    if (MOCK_MODE) return true
+    const docRef = doc(db, 'configuracion', 'global')
+    await setDoc(docRef, { ...data, updatedAt: serverTimestamp() }, { merge: true })
+    return true
+}
+
+export async function updateInvitacionDocumento(invitacionId, data) {
+    if (MOCK_MODE) {
+        const invIdx = seedInvitaciones.findIndex(i => i.id === invitacionId)
+        if (invIdx !== -1) {
+            seedInvitaciones[invIdx] = { ...seedInvitaciones[invIdx], ...data }
+            return true
+        }
+        return false
+    }
+    const docRef = doc(db, 'invitaciones', invitacionId)
+    await updateDoc(docRef, {
+        ...data,
+        documento_registrado: true,
+        fecha_registro_documento: serverTimestamp()
+    })
+    return true
+}
