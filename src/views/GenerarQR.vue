@@ -42,6 +42,14 @@ const isOcrProcessing = ref(false)
 const ocrError = ref('')
 const fileInput = ref(null)
 
+const subtipoDelivery = ref('')
+const deliveryOptions = [
+  { id: 'Comida', label: 'Comida', icon: '🍔', desc: 'Uber / PedidosYa' },
+  { id: 'Farmacia', label: 'Farmacia', icon: '💊', desc: 'Medicamentos' },
+  { id: 'Colmado', label: 'Colmado', icon: '🛒', desc: 'Víveres / Bebidas' },
+  { id: 'Paquetería', label: 'Paquetería', icon: '📦', desc: 'Correos / Envío' }
+]
+
 // Camera
 const cameraActive = ref(false)
 const cameraStream = ref(null)
@@ -65,6 +73,7 @@ const sentidoMovimiento = ref('Entrada') // Entrada | Salida
 
 const esAirbnb = computed(() => tipoVisitante.value === 'Airbnb')
 const esLogistica = computed(() => ['Mudanza', 'Servicio'].includes(tipoVisitante.value))
+const esDelivery = computed(() => tipoVisitante.value === 'Delivery')
 
 onMounted(async () => {
   isLoading.value = true
@@ -140,7 +149,13 @@ const unidadesFiltradas = computed(() => {
 const condominioSeleccionado = computed(() => condominios.value.find(c => c.id === selectedCondominio.value))
 const unidadSeleccionada = computed(() => unidades.value.find(u => u.id === selectedUnidad.value))
 const formularioValido = computed(() => {
-  if (!selectedCondominio.value || !selectedUnidad.value || !nombreVisitante.value.trim() || !telefono.value.trim() || !fechaExpiracion.value) return false
+  if (!selectedCondominio.value || !selectedUnidad.value || !fechaExpiracion.value) return false
+  
+  if (esDelivery.value) {
+    return !!subtipoDelivery.value
+  }
+  
+  if (!nombreVisitante.value.trim() || !telefono.value.trim()) return false
   if (esAirbnb.value && (!fechaInicio.value || !fechaSalida.value)) return false
   if (esLogistica.value && (!vehiculoPlaca.value || !vehiculoTipo.value)) return false
   return true
@@ -245,17 +260,20 @@ async function generarQR() {
     const secuencial = await getSiguientePase()
     paseSecuencial.value = secuencial
 
+    // Si es Delivery, inyectamos el subtipo como nombre para trazabilidad
+    const nombreFinal = esDelivery.value ? `Delivery - ${subtipoDelivery.value}` : nombreVisitante.value
+
     const inv = await createInvitacion({
       condominioId: selectedCondominio.value,
       condominioNombre: condominioSeleccionado.value?.nombre || '',
       unidadId: selectedUnidad.value,
       unidadNumero: unidadSeleccionada.value?.codigo_unidad || unidadSeleccionada.value?.numero || '',
       propietarioId: userId.value,
-      nombreVisitante: nombreVisitante.value,
-      telefono: telefono.value,
-      nacionalidad: nacionalidad.value,
-      documentoId: documentoId.value,
-      tipoDocumento: tipoDocumento.value,
+      nombreVisitante: nombreFinal,
+      telefono: esDelivery.value ? 'Express' : telefono.value,
+      nacionalidad: esDelivery.value ? '' : nacionalidad.value,
+      documentoId: esDelivery.value ? '' : documentoId.value,
+      tipoDocumento: esDelivery.value ? 'n/a' : tipoDocumento.value,
       pais_origen: paisOrigen.value,
       tipo: tipoVisitante.value,
       fechaExpiracion: esAirbnb.value
@@ -269,16 +287,17 @@ async function generarQR() {
         marca: vehiculoMarca.value,
         sentido: sentidoMovimiento.value
       } : null,
-      fotoDocumento: fotoDocumento.value,
+      fotoDocumento: esDelivery.value ? null : fotoDocumento.value,
       numeroPase: secuencial
     })
     qrCodigo.value = inv.idQR
-    // Generate real QR image
-    qrImageSrc.value = await QRCode.toDataURL(inv.idQR, { width: 300, margin: 2, color: { dark: '#1a1a2e', light: '#ffffff' } })
+    // Si NO es delivery generamos el QR real
+    if (!esDelivery.value) {
+      qrImageSrc.value = await QRCode.toDataURL(inv.idQR, { width: 300, margin: 2, color: { dark: '#1a1a2e', light: '#ffffff' } })
+    }
     paso.value = 3
     qrGenerado.value = true
 
-    // Quemar / anular el pase anterior automáticamente por seguridad
     if (editandoId.value) {
       await anularInvitacion(editandoId.value)
     }
@@ -426,7 +445,23 @@ function resetFormulario() {
         </select>
       </div>
 
-      <div class="glass-card p-4 space-y-3" v-if="selectedUnidad">
+      <!-- BYPASS DELIVERY EXPRESS (Bypass ID/Camera) -->
+      <div v-if="esDelivery && selectedUnidad" class="glass-card p-4 space-y-4 animate-fade-in-up border border-blue-500/30 bg-blue-500/5">
+        <div class="flex items-center gap-2 mb-2">
+          <Truck class="w-5 h-5 text-blue-400" />
+          <h3 class="text-sm font-bold text-white uppercase tracking-widest">Delivery Express</h3>
+        </div>
+        <p class="text-[10px] text-white/40 uppercase font-bold">Seleccione Categoría de Entrega</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button v-for="opt in deliveryOptions" :key="opt.id" @click="subtipoDelivery = opt.id" class="p-3 rounded-xl border transition-all flex flex-col items-center gap-1 group" :class="subtipoDelivery === opt.id ? 'bg-blue-500 border-blue-400 shadow-lg shadow-blue-500/30' : 'bg-white/5 border-white/10 hover:border-white/30'">
+            <span class="text-2xl mb-1">{{ opt.icon }}</span>
+            <span class="text-xs font-bold" :class="subtipoDelivery === opt.id ? 'text-white' : 'text-white/70'">{{ opt.label }}</span>
+            <span class="text-[8px] text-center opacity-50">{{ opt.desc }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="glass-card p-4 space-y-3" v-if="selectedUnidad && !esDelivery">
         <label class="text-xs font-semibold text-white/60 uppercase tracking-wider flex items-center gap-2"><User class="w-4 h-4" />Datos del Visitante</label>
         <div class="grid grid-cols-2 gap-2">
             <input v-model="nombreVisitante" type="text" placeholder="Nombre completo" class="input-field" />
@@ -674,13 +709,32 @@ function resetFormulario() {
               </div>
             </div>
             <div class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap"
-              :class="esAirbnb ? 'bg-amber-500/30 text-amber-200 border border-amber-400/30' : esLogistica ? 'bg-blue-500/30 text-blue-200 border border-blue-400/30' : 'bg-emerald-500/30 text-emerald-200 border border-emerald-400/30'">
+              :class="esAirbnb ? 'bg-amber-500/30 text-amber-200 border border-amber-400/30' : (esLogistica || esDelivery) ? 'bg-blue-500/30 text-blue-200 border border-blue-400/30' : 'bg-emerald-500/30 text-emerald-200 border border-emerald-400/30'">
               {{ tipoVisitante === 'Airbnb' ? '🏖️ Airbnb' : (tiposVisitante.find(t => t.id === tipoVisitante)?.icon + ' ' + (tiposVisitante.find(t => t.id === tipoVisitante)?.label || tipoVisitante)) }}
             </div>
           </div>
         </div>
 
-        <div class="bg-gradient-to-b from-gray-900 to-gray-950 px-6 py-5">
+        <div v-if="esDelivery" class="bg-gradient-to-b from-blue-900 to-gray-950 px-6 py-8 flex flex-col items-center justify-center space-y-6">
+           <div class="text-center">
+             <p class="text-[10px] text-blue-400 uppercase tracking-[0.3em] font-black mb-2">Acceso Delivery Express</p>
+             <h2 class="text-2xl font-black text-white uppercase">{{ "Delivery - " + subtipoDelivery }}</h2>
+           </div>
+           
+           <div class="w-full bg-white/5 border border-white/10 rounded-3xl p-8 flex flex-col items-center border-dashed">
+             <p class="text-[12px] text-blue-400 uppercase tracking-widest font-bold mb-4">PIN de Acceso</p>
+             <p class="text-8xl font-black text-blue-500 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)] font-mono tracking-tighter">
+               {{ paseSecuencial }}
+             </p>
+           </div>
+           
+           <div class="flex items-center gap-3 bg-blue-500/10 px-4 py-2 rounded-full border border-blue-500/30">
+             <Truck class="w-4 h-4 text-blue-400" />
+             <p class="text-[10px] text-white font-bold uppercase tracking-widest">Validación Visual Directa</p>
+           </div>
+        </div>
+
+        <div v-else class="bg-gradient-to-b from-gray-900 to-gray-950 px-6 py-5">
           <!-- Logistics Badge -->
           <div v-if="esLogistica" class="mb-5 bg-blue-500/10 border border-blue-500/20 rounded-2xl p-4 flex items-center justify-between">
             <div>

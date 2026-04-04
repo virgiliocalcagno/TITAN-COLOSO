@@ -550,9 +550,15 @@ function resetDelivery() {
     <div v-if="showManualEntry && !scanning && !resultado" class="glass-card p-4 space-y-3">
       <label class="text-xs font-semibold text-white/60 uppercase tracking-wider">Código de Acceso</label>
       <div class="flex gap-2">
-        <input v-model="manualCode" type="text" placeholder="TITAN-WS-G44-..." 
-          :disabled="!selectedPOI || !isInSecureZone"
-          class="input-field flex-1 disabled:opacity-50" @keyup.enter="buscarManual" />
+        <input 
+          v-model="manualCode" 
+          type="tel" 
+          inputmode="numeric" 
+          pattern="[0-9]*" 
+          placeholder="Ingrese el PIN"
+          class="input-field flex-1" 
+          @keyup.enter="buscarManual" 
+        />
         <button @click="buscarManual" 
           :disabled="!selectedPOI || !isInSecureZone || !manualCode"
           class="btn-primary px-4 disabled:bg-white/5 disabled:text-white/20">Verificar</button>
