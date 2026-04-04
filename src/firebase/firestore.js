@@ -1616,3 +1616,82 @@ export async function updateInvitacionDocumento(invitacionId, data) {
     })
     return true
 }
+
+// ============================================
+// DISPOSITIVOS SMART (TTLock - K3/G2)
+// ============================================
+
+export let seedSmartDevices = loadFromLocal('smart_devices', [
+    {
+        id: 'dev-001',
+        nombre: 'Teclado Entrada Principal',
+        tipo: 'Teclado K3',
+        condominioId: 'white-sand',
+        condominioNombre: 'White Sand',
+        lockId: '123456',
+        estado: 'Sincronizado',
+        fechaRegistro: '2026-03-01T10:00:00'
+    },
+    {
+        id: 'dev-002',
+        nombre: 'Gateway Lobby',
+        tipo: 'Gateway G2',
+        condominioId: 'sea-dream',
+        condominioNombre: 'Sea Dream',
+        gatewayId: 'GW-789',
+        estado: 'Online',
+        fechaRegistro: '2026-03-15T08:30:00'
+    }
+])
+
+export async function getSmartDevices() {
+    if (MOCK_MODE) return seedSmartDevices
+    const snap = await getDocs(collection(db, 'smart_devices'))
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+}
+
+export async function addSmartDevice(data) {
+    const nuevo = { 
+        ...data, 
+        estado: data.tipo === 'Gateway G2' ? 'Online' : 'Iniciado',
+        fechaRegistro: new Date().toISOString() 
+    }
+    if (MOCK_MODE) {
+        nuevo.id = 'dev-' + Date.now()
+        seedSmartDevices.push(nuevo)
+        saveToLocal('smart_devices', seedSmartDevices)
+        return nuevo
+    }
+    const docRef = await addDoc(collection(db, 'smart_devices'), {
+        ...nuevo,
+        createdAt: serverTimestamp()
+    })
+    return { id: docRef.id, ...nuevo }
+}
+
+export async function updateSmartDevice(id, data) {
+    if (MOCK_MODE) {
+        const idx = seedSmartDevices.findIndex(d => d.id === id)
+        if (idx !== -1) {
+            seedSmartDevices[idx] = { ...seedSmartDevices[idx], ...data }
+            saveToLocal('smart_devices', seedSmartDevices)
+            return true
+        }
+        return false
+    }
+    await updateDoc(doc(db, 'smart_devices', id), {
+        ...data,
+        updatedAt: serverTimestamp()
+    })
+    return true
+}
+
+export async function deleteSmartDevice(id) {
+    if (MOCK_MODE) {
+        seedSmartDevices = seedSmartDevices.filter(d => d.id !== id)
+        saveToLocal('smart_devices', seedSmartDevices)
+        return true
+    }
+    await deleteDoc(doc(db, 'smart_devices', id))
+    return true
+}

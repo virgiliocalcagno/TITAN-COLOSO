@@ -7,6 +7,7 @@ const Dashboard = () => import('./views/Dashboard.vue')
 const GenerarQR = () => import('./views/GenerarQR.vue')
 const EscanerSeguridad = () => import('./views/EscanerSeguridad.vue')
 const SuperAdminDesktop = () => import('./views/SuperAdminDesktop.vue')
+const MobileHardware = () => import('./views/MobileHardware.vue')
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
@@ -44,6 +45,12 @@ const router = createRouter({
             name: 'super-admin',
             component: SuperAdminDesktop,
             meta: { requiresAuth: true, roles: ['admin'] }
+        },
+        {
+            path: '/hardware-mobile',
+            name: 'hardware-mobile',
+            component: MobileHardware,
+            meta: { requiresAuth: false }
         },
         {
             path: '/:pathMatch(.*)*',

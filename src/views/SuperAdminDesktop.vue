@@ -984,6 +984,43 @@
             </label>
           </div>
 
+          <!-- TTLock API Credentials -->
+          <div class="space-y-4 p-6 rounded-3xl bg-gray-900/50 border border-gray-800">
+            <h4 class="text-xs font-black text-purple-400 uppercase tracking-[0.2em] mb-4">Integración TTLock Cloud</h4>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1.5 block">Client ID</label>
+                <div class="relative">
+                  <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-500"><ShieldCheck :size="16"/></span>
+                  <input v-model="globalConfig.ttlock_client_id" placeholder="TTL-123456..." 
+                    class="w-full bg-black/40 border border-gray-700/50 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:border-purple-500 focus:outline-none transition-all" />
+                </div>
+              </div>
+              <div>
+                <label class="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1.5 block">Client Secret</label>
+                <div class="relative">
+                  <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-500"><Key :size="16"/></span>
+                  <input v-model="globalConfig.ttlock_client_secret" type="password" placeholder="••••••••••••••••" 
+                    class="w-full bg-black/40 border border-gray-700/50 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:border-purple-500 focus:outline-none transition-all" />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label class="text-[10px] text-gray-500 uppercase font-black tracking-widest mb-1.5 block">Callback URL (Webhook)</label>
+              <div class="relative">
+                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-500"><Globe :size="16"/></span>
+                <input v-model="globalConfig.ttlock_callback_url" placeholder="https://tu-api.com/callback" 
+                  class="w-full bg-black/40 border border-gray-700/50 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:border-purple-500 focus:outline-none transition-all" />
+              </div>
+              <p class="text-[9px] text-purple-400 mt-2 italic font-bold">
+                URL Recomendada: <span class="bg-purple-500/10 px-1.5 py-0.5 rounded select-all">https://ttlockwebhook-jlo2koxhva-uc.a.run.app</span>
+              </p>
+              <p class="text-[9px] text-gray-600 mt-1 italic font-medium">Copia esta URL en el portal de desarrolladores de TTLock.</p>
+            </div>
+          </div>
+
           <!-- Información de Versión -->
           <div class="p-6 rounded-3xl bg-gray-900/30 border border-gray-800/50">
             <div class="flex items-center justify-between">
@@ -1008,6 +1045,83 @@
             <Loader2 v-if="guardandoConfig" :size="18" class="animate-spin" />
             {{ guardandoConfig ? 'Guardando...' : 'Aplicar Cambios' }}
           </button>
+        </div>
+      </div>
+
+      <!-- Sección: Gestión de Dispositivos Smart (TAB SMART_LOCKS) -->
+      <div v-show="activeTab === 'smart_locks'" class="bg-gray-800/40 border border-gray-700/50 rounded-[32px] p-8 shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between mb-8">
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 rounded-2xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20">
+              <Activity :size="28" class="text-cyan-400" />
+            </div>
+            <div>
+              <h3 class="text-xl font-bold text-white tracking-tight">Dispositivos Smart</h3>
+              <p class="text-sm text-gray-400">Monitor de teclados K3 y Gateways en campo</p>
+            </div>
+          </div>
+          <button @click="openDeviceModal()" 
+            class="bg-cyan-600 hover:bg-cyan-500 text-white px-6 py-2.5 rounded-2xl font-bold text-sm transition-all flex items-center gap-2 shadow-lg">
+            <Plus :size="18" /> Añadir Dispositivo
+          </button>
+        </div>
+
+        <div class="bg-gray-900/50 rounded-3xl border border-gray-800 overflow-hidden">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-gray-800/20 text-[10px] text-gray-500 uppercase font-black tracking-widest border-b border-gray-800">
+                <th class="px-6 py-4">Dispositivo</th>
+                <th class="px-6 py-4">Condominio</th>
+                <th class="px-6 py-4">Hardware ID</th>
+                <th class="px-6 py-4">Estado</th>
+                <th class="px-6 py-4 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-800">
+              <tr v-for="dev in dispositivosSmart" :key="dev.id" class="hover:bg-cyan-500/5 transition-colors group">
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center border border-gray-700 group-hover:border-cyan-500/30">
+                      <Settings v-if="dev.tipo === 'Gateway G2'" :size="16" class="text-gray-400" />
+                      <Activity v-else :size="16" class="text-cyan-400" />
+                    </div>
+                    <div>
+                      <p class="text-sm font-bold text-white leading-none mb-1">{{ dev.nombre }}</p>
+                      <p class="text-[10px] text-gray-500 font-medium uppercase">{{ dev.tipo }}</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <span class="text-xs text-gray-300 font-medium">{{ dev.condominioNombre }}</span>
+                </td>
+                <td class="px-6 py-4">
+                  <span class="text-xs font-mono text-gray-400 bg-black/30 px-2 py-1 rounded-md">{{ dev.lockId || dev.gatewayId || '—' }}</span>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full" :class="dev.estado === 'Online' || dev.estado === 'Sincronizado' ? 'bg-emerald-500' : 'bg-gray-500'"></span>
+                    <span class="text-[10px] font-bold uppercase tracking-tighter" 
+                      :class="dev.estado === 'Online' || dev.estado === 'Sincronizado' ? 'text-emerald-400' : 'text-gray-400'">
+                      {{ dev.estado }}
+                    </span>
+                  </div>
+                </td>
+                <td class="px-6 py-4 text-right">
+                  <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button @click="openDeviceModal(dev)" class="p-2 bg-gray-800 hover:bg-gray-700 rounded-xl text-gray-400 hover:text-white transition-all">
+                      <Pencil :size="14" />
+                    </button>
+                    <button @click="confirmarBorradoDevice(dev)" class="p-2 bg-red-500/10 hover:bg-red-500 rounded-xl text-red-400 hover:text-white transition-all">
+                      <Trash2 :size="14" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="!dispositivosSmart.length">
+                <td colspan="5" class="px-6 py-12 text-center text-gray-500 italic text-sm">No hay dispositivos registrados en la red.</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -1056,6 +1170,91 @@
       </div>
     </div>
 
+    <!-- Modal Dispositivo Smart -->
+    <div v-if="showDeleteDeviceModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div class="bg-gray-900 border border-red-900/50 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
+        <div class="p-6">
+          <div class="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4 border border-red-500/20">
+            <Settings :size="32" class="text-red-500" />
+            <Trash2 class="absolute text-red-400/50 -right-2 -bottom-2" :size="20"/>
+          </div>
+          <h2 class="text-xl font-bold text-white text-center mb-2">Eliminar Dispositivo Smart</h2>
+          <p class="text-gray-400 text-center text-sm mb-6">
+            ¿Estás seguro de eliminar <span class="text-white font-bold">{{ selectedDeviceToDelete?.nombre }}</span>? Esta acción no se puede deshacer.
+          </p>
+
+          <div class="flex flex-col gap-3">
+            <button @click="ejecutarBorradoDevice"
+              class="w-full bg-red-600 hover:bg-red-500 text-white py-3 rounded-2xl font-bold transition-all shadow-lg flex items-center justify-center gap-2">
+              <Trash2 :size="18" /> Confirmar Eliminación
+            </button>
+            <button @click="showDeleteDeviceModal = false" 
+              class="w-full bg-transparent hover:bg-gray-800 text-gray-400 py-3 rounded-2xl font-medium transition-all">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Formulario Dispositivo -->
+    <div v-if="showDeviceModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+      <div class="bg-gray-900 border border-gray-700 rounded-[32px] w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
+        <div class="p-8">
+          <h3 class="text-2xl font-bold text-white mb-6">{{ editingDevice ? 'Editar Dispositivo' : 'Nuevo Dispositivo Smart' }}</h3>
+          
+          <div class="space-y-4">
+            <div>
+              <label class="text-xs text-gray-400 uppercase font-black tracking-widest mb-1 block">Nombre</label>
+              <input v-model="deviceForm.nombre" placeholder="Ej. Puerta Principal" 
+                class="w-full bg-gray-800 border border-gray-700 rounded-2xl px-4 py-3 text-white focus:border-purple-500 focus:outline-none" />
+            </div>
+
+            <div>
+              <label class="text-xs text-gray-400 uppercase font-black tracking-widest mb-1 block">Condominio</label>
+              <select v-model="deviceForm.condominioId"
+                class="w-full bg-gray-800 border border-gray-700 rounded-2xl px-4 py-3 text-white focus:border-purple-500 focus:outline-none">
+                <option value="">Seleccionar Recinto...</option>
+                <option v-for="c in condominios" :key="c.id" :value="c.id">{{ c.nombre }}</option>
+              </select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="text-xs text-gray-400 uppercase font-black tracking-widest mb-1 block">Tipo</label>
+                <select v-model="deviceForm.tipo"
+                  class="w-full bg-gray-800 border border-gray-700 rounded-2xl px-4 py-3 text-white focus:border-purple-500 focus:outline-none">
+                  <option value="Teclado K3">Teclado K3/K3F</option>
+                  <option value="Gateway G2">Gateway G2</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs text-gray-400 uppercase font-black tracking-widest mb-1 block">
+                  {{ deviceForm.tipo === 'Gateway G2' ? 'Gateway ID' : 'Lock ID' }}
+                </label>
+                <input v-model="deviceForm.lockId" placeholder="ID del Hardware" 
+                  class="w-full bg-gray-800 border border-gray-700 rounded-2xl px-4 py-3 text-white focus:border-purple-500 focus:outline-none" />
+              </div>
+            </div>
+
+            <button v-if="deviceForm.tipo !== 'Gateway G2'" 
+              class="w-full py-3 bg-purple-600/10 text-purple-400 border border-purple-500/20 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-purple-600 hover:text-white transition-all">
+              <Activity :size="18" /> Escanear por Bluetooth
+            </button>
+          </div>
+
+          <div class="flex gap-4 mt-8">
+            <button @click="saveDevice" :disabled="!deviceForm.nombre || !deviceForm.condominioId"
+              class="flex-1 bg-white text-black py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-purple-500 hover:text-white transition-all disabled:opacity-50">
+              {{ editingDevice ? 'Actualizar' : 'Registrar' }}
+            </button>
+            <button @click="showDeviceModal = false" class="px-6 bg-gray-800 text-gray-400 py-4 rounded-2xl font-bold hover:text-white transition-all">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
     <!-- Modal Unidad -->
     <div v-if="showDeleteUnidadModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
       <div class="bg-gray-900 border border-red-900/50 rounded-3xl w-full max-w-md overflow-hidden shadow-[0_0_40px_-10px_rgba(220,38,38,0.2)] animate-in fade-in zoom-in duration-200">
@@ -1251,7 +1450,7 @@ L.Icon.Default.mergeOptions({
 import { 
   Building2, Plus, Trash2, Search, Check, X, Pencil, Loader2, CheckCircle, 
   LayoutGrid, Wand2, List, Users, UserPlus, Link, AlertTriangle, History, LogIn, FileText, Mail, ChevronDown, User, LogOut,
-  Shield, MapPin, Activity, Pentagon, Settings
+  Shield, MapPin, Activity, Pentagon, Settings, ShieldCheck, Key, Globe, Cpu, Hammer
 } from 'lucide-vue-next'
 import {
   getCondominios, getUnidades, getAgrupadores, getAdminStats,
@@ -1263,7 +1462,8 @@ import {
   getActividadByCondominio, subscribeToActividadGlobal,
   getGeocercas, addGeocerca, deleteGeocerca, subscribeToGuardias,
   addAgrupador, deleteAgrupador, updateCondominio, updateGeocerca,
-  getGlobalConfig, updateGlobalConfig
+  getGlobalConfig, updateGlobalConfig,
+  getSmartDevices, addSmartDevice, updateSmartDevice, deleteSmartDevice
 } from '../firebase/firestore.js'
 
 const router = useRouter()
@@ -1288,6 +1488,81 @@ const stats = ref({ totalCondominios: 0, totalUnidades: 0, totalAgrupadores: 0, 
 const activeTab = ref('soc')
 const errorMsg = ref('')
 
+// ---- Gestión de Dispositivos Smart ----
+const dispositivosSmart = ref([])
+const loadingDispositivos = ref(false)
+const showDeviceModal = ref(false)
+const editingDevice = ref(null)
+const showDeleteDeviceModal = ref(false)
+const selectedDeviceToDelete = ref(null)
+const deviceForm = ref({
+  nombre: '',
+  tipo: 'Teclado K3',
+  condominioId: '',
+  lockId: '',
+  gatewayId: ''
+})
+
+const filteredDispositivos = computed(() => dispositivosSmart.value)
+
+async function fetchDispositivosSmart() {
+  loadingDispositivos.value = true
+  try {
+    dispositivosSmart.value = await getSmartDevices()
+  } catch (e) {
+    console.error("Error cargando dispositivos:", e)
+  } finally {
+    loadingDispositivos.value = false
+  }
+}
+
+function openDeviceModal(dev = null) {
+  if (dev) {
+    editingDevice.value = dev
+    deviceForm.value = { ...dev }
+  } else {
+    editingDevice.value = null
+    deviceForm.value = { nombre: '', tipo: 'Teclado K3', condominioId: '', lockId: '', gatewayId: '' }
+  }
+  showDeviceModal.value = true
+}
+
+async function saveDevice() {
+  const condo = condominios.value.find(c => c.id === deviceForm.value.condominioId)
+  const data = { 
+    ...deviceForm.value, 
+    condominioNombre: condo?.nombre || 'Desconocido'
+  }
+
+  try {
+    if (editingDevice.value) {
+      await updateSmartDevice(editingDevice.value.id, data)
+    } else {
+      await addSmartDevice(data)
+    }
+    await fetchDispositivosSmart()
+    showDeviceModal.value = false
+  } catch (e) {
+    alert("Error al guardar dispositivo: " + e.message)
+  }
+}
+
+function confirmarBorradoDevice(dev) {
+  selectedDeviceToDelete.value = dev
+  showDeleteDeviceModal.value = true
+}
+
+async function ejecutarBorradoDevice() {
+  if (!selectedDeviceToDelete.value) return
+  try {
+    await deleteSmartDevice(selectedDeviceToDelete.value.id)
+    await fetchDispositivosSmart()
+    showDeleteDeviceModal.value = false
+  } catch (e) {
+    alert("Error al eliminar: " + e.message)
+  }
+}
+
 
 
 const tabs = [
@@ -1297,6 +1572,7 @@ const tabs = [
   { id: 'unidades', label: 'Unidades', short: 'Uds', icon: List },
   { id: 'usuarios', label: 'Usuarios', short: 'Usr', icon: Users },
   { id: 'asignaciones', label: 'Asignaciones', short: 'Asig', icon: Link },
+  { id: 'smart_locks', label: 'Dispositivos Smart', short: 'Hardware', icon: Cpu },
   { id: 'configuracion', label: 'Configuracion', short: 'Conf', icon: Settings },
 ]
 
@@ -1370,7 +1646,12 @@ async function confirmarBorradoGeocerca(id) {
 }
 
 // ---- Configuración Global (Configurabilidad) ----
-const globalConfig = ref({ permitirRegistroIdScanner: true })
+const globalConfig = ref({ 
+  permitirRegistroIdScanner: true,
+  ttlock_client_id: '',
+  ttlock_client_secret: '',
+  ttlock_callback_url: ''
+})
 const guardandoConfig = ref(false)
 
 async function loadConfig() {
@@ -1422,17 +1703,18 @@ const playAlert = (type = 'success') => {
 onMounted(async () => {
   loadConfig()
   await refreshData()
+  fetchDispositivosSmart()
   
   unsubscribeSoc = subscribeToActividadGlobal(50, (logs) => {
-    if (logs.length > logsSoc.value.length) {
+    if (logs && logsSoc.value && (logs.length > logsSoc.value.length)) {
         const newLog = logs[0]
-        if (newLog.tipo === 'denegado' || newLog.accion.toLowerCase().includes('ya usado')) {
+        if (newLog.tipo === 'denegado' || (newLog.accion || '').toLowerCase().includes('ya usado')) {
             playAlert('error')
         } else {
             playAlert('success')
         }
     }
-    logsSoc.value = logs
+    logsSoc.value = logs || []
   })
 
   unsubscribeGuardias = subscribeToGuardias((guardias) => {
@@ -2212,7 +2494,8 @@ async function refreshData() {
       getAgrupadores(),
       getUsuarios(),
       getAsignaciones(),
-      getGeocercas()
+      getGeocercas(),
+      getSmartDevices()
     ])
 
     if (results[0].status === 'fulfilled') condominios.value = results[0].value
@@ -2221,6 +2504,7 @@ async function refreshData() {
     if (results[3].status === 'fulfilled') usuarios.value = results[3].value
     if (results[4].status === 'fulfilled') asignaciones.value = results[4].value
     if (results[5].status === 'fulfilled') geocercas.value = results[5].value
+    if (results[6].status === 'fulfilled') dispositivosSmart.value = results[6].value
 
     // Si todo falló, mostrar error general
     if (results.every(r => r.status === 'rejected')) {
